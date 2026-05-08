@@ -1,5 +1,6 @@
 [data-paged-react-document] {
   box-sizing: border-box;
+  position: relative;
 }
 
 [data-paged-react-document],
@@ -7,6 +8,34 @@
 [data-paged-react-document] *::before,
 [data-paged-react-document] *::after {
   box-sizing: border-box;
+}
+
+[data-paged-react-source] {
+  left: -100000px;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+}
+
+[data-paged-react-pages] {
+  display: grid;
+  gap: 24px;
+}
+
+[data-paged-react-page] {
+  background: #fff;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: var(--paged-react-page-height, auto);
+  overflow: hidden;
+  width: var(--paged-react-page-width, auto);
+}
+
+[data-paged-react-page-body] {
+  min-height: 0;
+  overflow: hidden;
 }
 
 [data-paged-react-segment] {

@@ -9,7 +9,8 @@ This package is currently scaffolded for the initial pagination engine work.
 ## Basic Shape
 
 ```tsx
-import { Document, pageSizes } from "paged-react";
+import { Document, PageBreak, pageSizes } from "paged-react";
+import "paged-react/styles.css";
 
 export function Report() {
   return (
@@ -21,6 +22,8 @@ export function Report() {
 
         <Document.Body>
           <article>{/* paginated content */}</article>
+          <PageBreak />
+          <article>{/* starts on new page */}</article>
         </Document.Body>
 
         <Document.Footer>

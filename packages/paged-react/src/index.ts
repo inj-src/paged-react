@@ -5,6 +5,7 @@ export {
   DocumentHeader,
   DocumentSegment,
 } from "./components/document.js";
+export { PageBreak } from "./components/page-break.js";
 export { pageSizes } from "./page-sizes.js";
 export type {
   DocumentBodyProps,

@@ -1,4 +1,5 @@
-import { forwardRef } from "react";
+import { forwardRef, useEffect, useMemo, useRef } from "react";
+import { paginateDocument } from "../core/paginate.js";
 import { createPageSizeStyle } from "../utils/page-size.js";
 import type {
   DocumentBodyProps,
@@ -68,14 +69,48 @@ export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(
 
 const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(
   function Document({ children, pageSize, style, ...props }, ref) {
+    const rootRef = useRef<HTMLDivElement | null>(null);
+    const sourceRef = useRef<HTMLDivElement | null>(null);
+    const pagesRef = useRef<HTMLDivElement | null>(null);
+
+    const mergedRef = useMemo(() => {
+      return (node: HTMLDivElement | null) => {
+        rootRef.current = node;
+        if (typeof ref === "function") {
+          ref(node);
+        } else if (ref) {
+          ref.current = node;
+        }
+      };
+    }, [ref]);
+
     const pageStyle = createPageSizeStyle(
       pageSize,
       style as StyleWithPageVars | undefined,
     );
 
+    useEffect(() => {
+      const sourceRoot = sourceRef.current;
+      const pagesRoot = pagesRef.current;
+
+      if (!sourceRoot || !pagesRoot) {
+        return;
+      }
+
+      void paginateDocument({ sourceRoot, pagesRoot, pageSize });
+    }, [children, pageSize]);
+
     return (
-      <div {...props} ref={ref} data-paged-react-document="" style={pageStyle}>
-        {children}
+      <div
+        {...props}
+        ref={mergedRef}
+        data-paged-react-document=""
+        style={pageStyle}
+      >
+        <div data-paged-react-source="" ref={sourceRef}>
+          {children}
+        </div>
+        <div data-paged-react-pages="" ref={pagesRef} />
       </div>
     );
   },
