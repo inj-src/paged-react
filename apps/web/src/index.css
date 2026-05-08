@@ -1,14 +1,75 @@
 @import "tailwindcss";
 
-.debug-outlines [data-paged-react-page] {
-  outline: 1px dashed #60a5fa;
+.sheet-body-typography > h1 {
+  margin-bottom: 0.75rem;
+  font-family: "Space Grotesk", "Avenir Next", sans-serif;
+  font-size: 22px;
+  line-height: 1.25;
 }
 
-.debug-outlines [data-paged-react-page-body] {
-  outline: 1px dashed #1d4ed8;
+.sheet-body-typography > h2 {
+  margin-top: 1rem;
+  margin-bottom: 0.625rem;
+  font-family: "Space Grotesk", "Avenir Next", sans-serif;
+  font-size: 18px;
 }
 
-.debug-outlines [data-paged-react-page-header],
-.debug-outlines [data-paged-react-page-footer] {
-  outline: 1px dashed #94a3b8;
+.sheet-body-typography > p {
+  margin-bottom: 0.625rem;
+  line-height: 1.45;
+}
+
+.paginated-sheet-theme [data-paged-react-page-header] {
+  color: rgb(71 85 105);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding-top: 18mm;
+  padding-inline: 16mm;
+  text-align: center;
+}
+
+.paginated-sheet-theme [data-paged-react-page-body] {
+  padding-inline: 16mm;
+}
+
+.paginated-sheet-theme [data-paged-react-page-footer] {
+  color: rgb(71 85 105);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding-bottom: 18mm;
+  padding-inline: 16mm;
+  text-align: center;
+}
+
+.paginated-sheet-theme [data-paged-react-page-body] > h1 {
+  margin-bottom: 0.75rem;
+  font-family: "Space Grotesk", "Avenir Next", sans-serif;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.paginated-sheet-theme [data-paged-react-page-body] > h2 {
+  margin-top: 1rem;
+  margin-bottom: 0.625rem;
+  font-family: "Space Grotesk", "Avenir Next", sans-serif;
+  font-size: 18px;
+}
+
+.paginated-sheet-theme [data-paged-react-page-body] > p {
+  margin-bottom: 0.625rem;
+  line-height: 1.45;
+}
+
+.paginated-sheet-theme [data-paged-react-page] {
+  border: 1px solid rgb(203 213 225);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+}
+
+/* Defensive: keep paginated source content non-visible in the demo pane. */
+.paginated-sheet-theme [data-paged-react-source] {
+  left: -100000px !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  top: 0 !important;
+  visibility: hidden !important;
 }

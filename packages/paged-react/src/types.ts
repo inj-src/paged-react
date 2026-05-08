@@ -30,6 +30,7 @@ export type SlotProps = ComponentPropsWithoutRef<"div">;
 export type DocumentProps = SlotProps & {
   children?: ReactNode;
   pageSize?: PageSize;
+  pruneSourceAfterPagination?: boolean;
 };
 
 export type DocumentSegmentProps = SlotProps & {

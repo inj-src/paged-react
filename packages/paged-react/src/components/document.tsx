@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useMemo, useRef } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { paginateDocument } from "../core/paginate.js";
 import { createPageSizeStyle } from "../utils/page-size.js";
 import type {
@@ -68,10 +68,14 @@ export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(
 );
 
 const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(
-  function Document({ children, pageSize, style, ...props }, ref) {
+  function Document(
+    { children, pageSize, pruneSourceAfterPagination = false, style, ...props },
+    ref,
+  ) {
     const rootRef = useRef<HTMLDivElement | null>(null);
     const sourceRef = useRef<HTMLDivElement | null>(null);
     const pagesRef = useRef<HTMLDivElement | null>(null);
+    const [isSourceMounted, setIsSourceMounted] = useState(true);
 
     const mergedRef = useMemo(() => {
       return (node: HTMLDivElement | null) => {
@@ -90,6 +94,15 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(
     );
 
     useEffect(() => {
+      if (!pruneSourceAfterPagination) {
+        setIsSourceMounted(true);
+        return;
+      }
+
+      setIsSourceMounted(true);
+    }, [children, pageSize, pruneSourceAfterPagination]);
+
+    useEffect(() => {
       const sourceRoot = sourceRef.current;
       const pagesRoot = pagesRef.current;
 
@@ -97,8 +110,25 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(
         return;
       }
 
-      void paginateDocument({ sourceRoot, pagesRoot, pageSize });
-    }, [children, pageSize]);
+      let cancelled = false;
+      const abortController = new AbortController();
+
+      void paginateDocument({
+        sourceRoot,
+        pagesRoot,
+        pageSize,
+        signal: abortController.signal,
+      }).then(() => {
+        if (!cancelled && pruneSourceAfterPagination) {
+          setIsSourceMounted(false);
+        }
+      });
+
+      return () => {
+        cancelled = true;
+        abortController.abort();
+      };
+    }, [children, isSourceMounted, pageSize, pruneSourceAfterPagination]);
 
     return (
       <div
@@ -107,9 +137,21 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(
         data-paged-react-document=""
         style={pageStyle}
       >
-        <div data-paged-react-source="" ref={sourceRef}>
-          {children}
-        </div>
+        {isSourceMounted ? (
+          <div
+            data-paged-react-source=""
+            ref={sourceRef}
+            style={{
+              left: "-100000px",
+              pointerEvents: "none",
+              position: "absolute",
+              top: 0,
+              visibility: "hidden",
+            }}
+          >
+            {children}
+          </div>
+        ) : null}
         <div data-paged-react-pages="" ref={pagesRef} />
       </div>
     );

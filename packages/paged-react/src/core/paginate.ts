@@ -5,6 +5,7 @@ type PaginationContext = {
   sourceRoot: HTMLElement;
   pagesRoot: HTMLElement;
   pageSize?: PageSize;
+  signal?: AbortSignal;
 };
 
 const BREAK_BEFORE_VALUES = new Set(["page", "always", "left", "right", "recto", "verso"]);
@@ -135,10 +136,16 @@ function collectBodyBlocks(bodySlot: HTMLElement): HTMLElement[] {
 }
 
 export async function paginateDocument(ctx: PaginationContext): Promise<void> {
-  const { sourceRoot, pagesRoot, pageSize } = ctx;
+  const { sourceRoot, pagesRoot, pageSize, signal } = ctx;
+  if (signal?.aborted) {
+    return;
+  }
   pagesRoot.textContent = "";
 
   await waitForLayoutReady(sourceRoot);
+  if (signal?.aborted) {
+    return;
+  }
 
   const documentPageSize = resolvePageSize(pageSize) ?? { width: "210mm", height: "297mm" };
   const segments = Array.from(
@@ -152,6 +159,9 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
   let pageNumber = 1;
 
   for (const [segmentIndex, segment] of segments.entries()) {
+    if (signal?.aborted) {
+      return;
+    }
     const segmentPageSize = getEffectivePageSize(segment, documentPageSize);
 
     const headerSlot = getDirectSlot(segment, "header");
@@ -177,6 +187,9 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
     cloneChildrenInto(currentPage.footer, footerSlot);
 
     for (const block of blocks) {
+      if (signal?.aborted) {
+        return;
+      }
       if (block.hasAttribute("data-paged-react-page-break")) {
         currentPage = createPage(pagesRoot, segmentPageSize, pageNumber++);
         currentPage.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
