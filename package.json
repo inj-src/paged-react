@@ -1,5 +1,5 @@
 {
-  "name": "paged-react",
+  "name": "paged-react-monorepo",
   "private": true,
   "scripts": {
     "build": "turbo run build",

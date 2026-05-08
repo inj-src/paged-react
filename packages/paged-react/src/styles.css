@@ -1,0 +1,21 @@
+[data-paged-react-document] {
+  box-sizing: border-box;
+}
+
+[data-paged-react-document],
+[data-paged-react-document] *,
+[data-paged-react-document] *::before,
+[data-paged-react-document] *::after {
+  box-sizing: border-box;
+}
+
+[data-paged-react-segment] {
+  width: var(--paged-react-page-width, auto);
+  min-height: var(--paged-react-page-height, auto);
+}
+
+[data-paged-react-header],
+[data-paged-react-body],
+[data-paged-react-footer] {
+  display: block;
+}
