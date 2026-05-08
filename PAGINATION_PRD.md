@@ -1,41 +1,40 @@
 # Paged React Pagination PRD
 
-## 1. Already Done
+## Phase 1 - Core Engine
 
-- Package scaffold, slot components, and page size presets.
-- `Document`, `Document.Segment`, `Document.Header`, `Document.Body`, `Document.Footer`.
-- `PageBreak` component.
-- Hidden source DOM and visible generated page DOM.
-- Source DOM is hidden inline by default.
-- Optional `pruneSourceAfterPagination`.
-- Segment-by-segment pagination.
-- Repeated header/footer cloning per generated page.
-- Block-first body overflow pagination loop.
-- Font/image readiness before layout.
-- CSS break detection: `break-before`, `break-after`, `page-break-before`, `page-break-after`.
-- `break-inside: avoid` / `page-break-inside: avoid` recognition.
-- Generated debug attributes: page number, segment index, oversized marker.
-- Demo scenarios: long article, forced breaks, multi-segment, different page sizes, oversized block/table.
+- [x] Package scaffold, slot components, and page size presets.
+- [x] `Document`, `Document.Segment`, `Document.Header`, `Document.Body`, `Document.Footer`.
+- [x] `PageBreak` component.
+- [x] Hidden source DOM and visible generated page DOM.
+- [x] Source DOM is hidden inline by default.
+- [x] Optional `pruneSourceAfterPagination`.
+- [x] Segment-by-segment pagination.
+- [x] Repeated header/footer cloning per generated page.
+- [x] Block-first body overflow pagination loop.
+- [x] Oversized element fallback behavior.
+- [x] Font/image readiness before layout.
+- [x] CSS break detection: `break-before`, `break-after`, `page-break-before`, `page-break-after`.
+- [x] `break-inside: avoid` / `page-break-inside: avoid` recognition.
+- [x] Generated debug attributes: page number, segment index, oversized marker.
 
-## 2. Needs To Be Done
+## Phase 2 - Next
 
-- Oversized element fallback behavior.
-- Automated package tests for pagination behavior.
-- Stable styling hook documentation.
-- Conflict resolution docs for `PageBreak` vs CSS break rules.
-- Mixed image/text scenario.
+- [x] Automated package tests for pagination behavior.
+- [x] Stable styling hook documentation.
+- [x] Conflict resolution docs for `PageBreak` vs CSS break rules.
+- [x] Mixed image/text scenario.
 
-## 3. Later
+## Phase 3 - Later
 
-- Table row-level splitting.
-- Repeated table headers.
-- Inline text splitting.
-- Keep-with-next policy.
-- Advanced `break-inside` avoidance policy.
-- Deeply nested layout handling.
-- Long unbroken string handling.
+- [x] Table row-level splitting.
+- [x] Repeated table headers.
+- [ ] Long unbroken string handling.
+- [ ] Inline text splitting.
 
-# 4. Scale
+## Phase 4 - Scale
 
-- 100+ page behavior/performance scenario.
-- Meta data api etc
+- [ ] Keep-with-next policy.
+- [ ] 100+ page behavior/performance scenario.
+- [ ] Advanced `break-inside` avoidance policy.
+- [ ] Metadata API.
+- [ ] Deeply nested layout handling.

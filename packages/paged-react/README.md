@@ -2,10 +2,6 @@
 
 React components for building print-ready documents with automatic pagination.
 
-## Status
-
-This package is currently scaffolded for the initial pagination engine work.
-
 ## Basic Shape
 
 ```tsx
@@ -15,7 +11,7 @@ import "paged-react/styles.css";
 export function Report() {
   return (
     <Document pageSize={pageSizes.A4} pruneSourceAfterPagination>
-      <Document.Segment className="p-[20mm]">
+      <Document.Segment className="p-[20mm]" repeatTableHeader>
         <Document.Header>
           <header>Quarterly Report</header>
         </Document.Header>
@@ -38,3 +34,43 @@ export function Report() {
 Slots accept normal `div` props such as `className`, `style`, `id`, `data-*`, and `aria-*`.
 
 `Document` keeps its source tree hidden for pagination measurement. If your document is static after render, set `pruneSourceAfterPagination` to unmount the source tree after pagination completes.
+
+`Document.Segment` also accepts `repeatTableHeader`. When enabled, paginated table fragments repeat the original `<thead>` on continuation pages.
+
+## Styling Hooks
+
+Import `paged-react/styles.css` once.
+
+- `[data-paged-react-document]`: root container
+- `[data-paged-react-pages]`: generated pages wrapper
+- `[data-paged-react-page]`: generated page
+- `[data-paged-react-page-header]`: rendered header slot
+- `[data-paged-react-page-body]`: rendered body slot
+- `[data-paged-react-page-footer]`: rendered footer slot
+- `--paged-react-page-width`: resolved page width
+- `--paged-react-page-height`: resolved page height
+
+Consumer spacing such as page margins should be applied through normal CSS on your segment and slot content.
+
+## Break Rules
+
+- `PageBreak` always starts a new page before following content.
+- `break-before` / `page-break-before` start a new page before the element.
+- `break-after` / `page-break-after` start a new page after the element.
+- If both `PageBreak` and CSS breaks are present, `PageBreak` wins because it is handled as an explicit marker in flow.
+- `break-inside: avoid` and `page-break-inside: avoid` are recognized as keep-together hints for a block.
+
+## Tables
+
+- Direct child `<table>` elements inside `Document.Body` are split by row when they overflow a page.
+- The first fragment keeps the original `<thead>`.
+- Continuation fragments repeat `<thead>` only when `repeatTableHeader` is set on the owning `Document.Segment`.
+
+## Test Coverage
+
+Current package tests cover:
+
+- explicit `PageBreak`
+- legacy CSS break rules
+- oversized block fallback
+- repeated header/footer cloning

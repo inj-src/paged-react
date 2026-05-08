@@ -12,6 +12,13 @@ const BREAK_BEFORE_VALUES = new Set(["page", "always", "left", "right", "recto",
 const BREAK_AFTER_VALUES = new Set(["page", "always", "left", "right", "recto", "verso"]);
 const BREAK_INSIDE_AVOID_VALUES = new Set(["avoid"]);
 
+type PageElements = {
+  page: HTMLDivElement;
+  body: HTMLDivElement;
+  header: HTMLDivElement;
+  footer: HTMLDivElement;
+};
+
 function getDirectSlot(
   parent: Element,
   attribute: "header" | "body" | "footer",
@@ -47,16 +54,19 @@ function shouldAvoidBreakInside(el: Element): boolean {
   return BREAK_INSIDE_AVOID_VALUES.has(modern) || BREAK_INSIDE_AVOID_VALUES.has(legacy);
 }
 
+function shouldRepeatTableHeader(segment: HTMLElement): boolean {
+  return segment.getAttribute("data-paged-react-repeat-table-header") === "true";
+}
+
+function isTableBlock(el: HTMLElement): el is HTMLTableElement {
+  return el.tagName === "TABLE";
+}
+
 function createPage(
   pagesRoot: HTMLElement,
   pageSize: { width: string; height: string },
   pageNumber: number,
-): {
-  page: HTMLDivElement;
-  body: HTMLDivElement;
-  header: HTMLDivElement;
-  footer: HTMLDivElement;
-} {
+): PageElements {
   const page = document.createElement("div");
   page.setAttribute("data-paged-react-page", "");
   page.setAttribute("data-page-number", String(pageNumber));
@@ -135,6 +145,105 @@ function collectBodyBlocks(bodySlot: HTMLElement): HTMLElement[] {
   return Array.from(bodySlot.children) as HTMLElement[];
 }
 
+function getTableRows(table: HTMLTableElement): HTMLTableRowElement[] {
+  if (table.tBodies.length > 0) {
+    return Array.from(table.tBodies).flatMap((section) => Array.from(section.rows));
+  }
+
+  return Array.from(table.querySelectorAll(":scope > tr"));
+}
+
+function createTableFragment(
+  sourceTable: HTMLTableElement,
+  includeHeader: boolean,
+): { table: HTMLTableElement; body: HTMLTableSectionElement } {
+  const table = sourceTable.cloneNode(false) as HTMLTableElement;
+
+  if (sourceTable.caption) {
+    table.appendChild(sourceTable.caption.cloneNode(true));
+  }
+
+  for (const colGroup of Array.from(sourceTable.querySelectorAll(":scope > colgroup"))) {
+    table.appendChild(colGroup.cloneNode(true));
+  }
+
+  if (includeHeader && sourceTable.tHead) {
+    table.appendChild(sourceTable.tHead.cloneNode(true));
+  }
+
+  const sourceBody = sourceTable.tBodies[0];
+  const body = sourceBody
+    ? (sourceBody.cloneNode(false) as HTMLTableSectionElement)
+    : document.createElement("tbody");
+
+  table.appendChild(body);
+  return { table, body };
+}
+
+function paginateTableBlock(params: {
+  block: HTMLTableElement;
+  currentPage: PageElements;
+  createSegmentPage: () => PageElements;
+  repeatHeader: boolean;
+}): PageElements {
+  const { block, createSegmentPage, repeatHeader } = params;
+  const rows = getTableRows(block);
+
+  let currentPage = params.currentPage;
+  let isFirstFragment = true;
+  let fragment = createTableFragment(block, true);
+  currentPage.body.appendChild(fragment.table);
+
+  for (const row of rows) {
+    const rowClone = row.cloneNode(true) as HTMLTableRowElement;
+    fragment.body.appendChild(rowClone);
+
+    if (!bodyHasOverflow(currentPage.body)) {
+      isFirstFragment = false;
+      continue;
+    }
+
+    fragment.body.removeChild(rowClone);
+
+    if (fragment.body.rows.length === 0) {
+      if (currentPage.body.childElementCount > 1) {
+        currentPage.body.removeChild(fragment.table);
+        currentPage = createSegmentPage();
+        fragment = createTableFragment(block, isFirstFragment || repeatHeader);
+        currentPage.body.appendChild(fragment.table);
+        fragment.body.appendChild(rowClone);
+
+        if (bodyHasOverflow(currentPage.body)) {
+          currentPage.page.setAttribute("data-paged-react-oversized", "true");
+        }
+        isFirstFragment = false;
+        continue;
+      }
+
+      fragment.body.appendChild(rowClone);
+      currentPage.page.setAttribute("data-paged-react-oversized", "true");
+      isFirstFragment = false;
+      continue;
+    }
+
+    currentPage = createSegmentPage();
+    fragment = createTableFragment(block, repeatHeader);
+    currentPage.body.appendChild(fragment.table);
+    fragment.body.appendChild(rowClone);
+
+    if (bodyHasOverflow(currentPage.body)) {
+      currentPage.page.setAttribute("data-paged-react-oversized", "true");
+    }
+    isFirstFragment = false;
+  }
+
+  if (fragment.body.rows.length === 0) {
+    currentPage.body.removeChild(fragment.table);
+  }
+
+  return currentPage;
+}
+
 export async function paginateDocument(ctx: PaginationContext): Promise<void> {
   const { sourceRoot, pagesRoot, pageSize, signal } = ctx;
   if (signal?.aborted) {
@@ -167,6 +276,7 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
     const headerSlot = getDirectSlot(segment, "header");
     const bodySlot = getDirectSlot(segment, "body");
     const footerSlot = getDirectSlot(segment, "footer");
+    const repeatHeader = shouldRepeatTableHeader(segment);
 
     if (!bodySlot) {
       continue;
@@ -181,10 +291,15 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
       continue;
     }
 
-    let currentPage = createPage(pagesRoot, segmentPageSize, pageNumber++);
-    currentPage.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
-    cloneChildrenInto(currentPage.header, headerSlot);
-    cloneChildrenInto(currentPage.footer, footerSlot);
+    const createSegmentPage = (): PageElements => {
+      const page = createPage(pagesRoot, segmentPageSize, pageNumber++);
+      page.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
+      cloneChildrenInto(page.header, headerSlot);
+      cloneChildrenInto(page.footer, footerSlot);
+      return page;
+    };
+
+    let currentPage = createSegmentPage();
 
     for (const block of blocks) {
       if (signal?.aborted) {
@@ -199,40 +314,56 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
       }
 
       if (shouldBreakBefore(block)) {
-        currentPage = createPage(pagesRoot, segmentPageSize, pageNumber++);
-        currentPage.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
-        cloneChildrenInto(currentPage.header, headerSlot);
-        cloneChildrenInto(currentPage.footer, footerSlot);
+        currentPage = createSegmentPage();
       }
 
+      if (isTableBlock(block)) {
+        currentPage = paginateTableBlock({
+          block,
+          currentPage,
+          createSegmentPage,
+          repeatHeader,
+        });
+
+        if (shouldBreakAfter(block)) {
+          currentPage = createSegmentPage();
+        }
+        continue;
+      }
+
+      const pageWasEmpty = currentPage.body.childElementCount === 0;
       const clone = block.cloneNode(true) as HTMLElement;
       currentPage.body.appendChild(clone);
 
       if (bodyHasOverflow(currentPage.body)) {
-        currentPage.body.removeChild(clone);
+        if (pageWasEmpty) {
+          currentPage.page.setAttribute("data-paged-react-oversized", "true");
+          if (shouldAvoidBreakInside(block)) {
+            currentPage.page.setAttribute("data-paged-react-break-inside-avoid", "true");
+          }
+        } else {
+          currentPage.body.removeChild(clone);
 
-        const nextPage = createPage(pagesRoot, segmentPageSize, pageNumber++);
-        nextPage.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
-        cloneChildrenInto(nextPage.header, headerSlot);
-        cloneChildrenInto(nextPage.footer, footerSlot);
-        nextPage.body.appendChild(clone);
+          const nextPage = createPage(pagesRoot, segmentPageSize, pageNumber++);
+          nextPage.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
+          cloneChildrenInto(nextPage.header, headerSlot);
+          cloneChildrenInto(nextPage.footer, footerSlot);
+          nextPage.body.appendChild(clone);
 
-        if (shouldAvoidBreakInside(block)) {
-          nextPage.page.setAttribute("data-paged-react-break-inside-avoid", "true");
+          if (shouldAvoidBreakInside(block)) {
+            nextPage.page.setAttribute("data-paged-react-break-inside-avoid", "true");
+          }
+
+          if (bodyHasOverflow(nextPage.body)) {
+            nextPage.page.setAttribute("data-paged-react-oversized", "true");
+          }
+
+          currentPage = nextPage;
         }
-
-        if (bodyHasOverflow(nextPage.body)) {
-          nextPage.page.setAttribute("data-paged-react-oversized", "true");
-        }
-
-        currentPage = nextPage;
       }
 
       if (shouldBreakAfter(block)) {
-        currentPage = createPage(pagesRoot, segmentPageSize, pageNumber++);
-        currentPage.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
-        cloneChildrenInto(currentPage.header, headerSlot);
-        cloneChildrenInto(currentPage.footer, footerSlot);
+        currentPage = createSegmentPage();
       }
     }
   }
