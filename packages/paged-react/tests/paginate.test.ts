@@ -35,7 +35,14 @@ function createTable(rowSizes: number[]): HTMLTableElement {
 }
 
 function sumTestSize(root: Element): number {
-  const selfSize = Number(root.getAttribute("data-test-size") ?? "0");
+  const explicitSize = Number(root.getAttribute("data-test-size") ?? "0");
+  const charsPerLine = Number(root.getAttribute("data-test-chars-per-line") ?? "0");
+  const lineHeight = Number(root.getAttribute("data-test-line-height") ?? "20");
+  const textSize =
+    charsPerLine > 0
+      ? Math.max(1, Math.ceil((root.textContent ?? "").length / charsPerLine)) * lineHeight
+      : 0;
+  const selfSize = explicitSize || textSize;
   return selfSize + Array.from(root.children).reduce<number>((sum, child) => {
     return sum + sumTestSize(child);
   }, 0);
@@ -84,10 +91,15 @@ describe("paginateDocument", () => {
     HTMLElement.prototype,
     "clientHeight",
   );
+  const originalClientWidth = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "clientWidth",
+  );
   const originalScrollHeight = Object.getOwnPropertyDescriptor(
     HTMLElement.prototype,
     "scrollHeight",
   );
+  const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
 
   beforeEach(() => {
     vi.stubGlobal(
@@ -113,6 +125,13 @@ describe("paginateDocument", () => {
       },
     });
 
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+      configurable: true,
+      get() {
+        return Number(this.getAttribute("data-test-width") ?? "120") || 120;
+      },
+    });
+
     Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
       configurable: true,
       get() {
@@ -127,6 +146,24 @@ describe("paginateDocument", () => {
         return originalScrollHeight?.get?.call(this) ?? 0;
       },
     });
+
+    HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
+      const width = Number(this.getAttribute("data-test-width") ?? "120") || 120;
+      const height = sumTestSize(this);
+      return {
+        bottom: height,
+        height,
+        left: 0,
+        right: width,
+        toJSON() {
+          return this;
+        },
+        top: 0,
+        width,
+        x: 0,
+        y: 0,
+      } as DOMRect;
+    };
   });
 
   afterEach(() => {
@@ -140,6 +177,12 @@ describe("paginateDocument", () => {
     if (originalScrollHeight) {
       Object.defineProperty(HTMLElement.prototype, "scrollHeight", originalScrollHeight);
     }
+
+    if (originalClientWidth) {
+      Object.defineProperty(HTMLElement.prototype, "clientWidth", originalClientWidth);
+    }
+
+    HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
   });
 
   it("creates a new page for PageBreak markers", async () => {
@@ -265,5 +308,64 @@ describe("paginateDocument", () => {
     expect(pages).toHaveLength(2);
     expect(pages[0]?.querySelectorAll("thead")).toHaveLength(1);
     expect(pages[1]?.querySelectorAll("thead")).toHaveLength(0);
+  });
+
+  it("splits long unbroken text inside a paragraph across pages", async () => {
+    const { sourceRoot, pagesRoot, body } = createSegment();
+    const paragraph = document.createElement("p");
+    paragraph.setAttribute("data-test-chars-per-line", "10");
+    paragraph.setAttribute("data-test-line-height", "20");
+    paragraph.setAttribute("data-test-width", "120");
+    paragraph.textContent = "SupercalifragilisticexpialidociousSupercalifragilisticexpialidocious";
+    body.append(paragraph);
+
+    await paginateDocument({
+      sourceRoot,
+      pagesRoot,
+      pageSize: { width: "210mm", height: "297mm" },
+    });
+
+    const pages = Array.from(pagesRoot.querySelectorAll("[data-paged-react-page]"));
+    expect(pages).toHaveLength(2);
+    expect(pages[0]?.textContent).toContain("Supercalifragilistic");
+    expect(pages[1]?.textContent).toContain("ocious");
+  });
+
+  it("splits nested layout content without moving the whole section as one block", async () => {
+    const { sourceRoot, pagesRoot, body } = createSegment();
+    const section = document.createElement("section");
+    const sidebar = document.createElement("div");
+    const content = document.createElement("div");
+    const intro = document.createElement("p");
+    const detail = document.createElement("p");
+
+    sidebar.setAttribute("data-test-size", "40");
+    sidebar.textContent = "Sidebar";
+
+    intro.setAttribute("data-test-size", "40");
+    intro.textContent = "Intro";
+
+    detail.setAttribute("data-test-chars-per-line", "12");
+    detail.setAttribute("data-test-line-height", "20");
+    detail.setAttribute("data-test-width", "120");
+    detail.textContent =
+      "NestedLayoutShouldContinueAcrossPagesWithoutDroppingTheWholeSectionIntoOneOversizedPage";
+
+    content.append(intro, detail);
+    section.append(sidebar, content);
+    body.append(section);
+
+    await paginateDocument({
+      sourceRoot,
+      pagesRoot,
+      pageSize: { width: "210mm", height: "297mm" },
+    });
+
+    const pages = Array.from(pagesRoot.querySelectorAll("[data-paged-react-page]"));
+    expect(pages.length).toBeGreaterThan(1);
+    expect(pages[0]?.textContent).toContain("Sidebar");
+    expect(pages[0]?.textContent).toContain("Intro");
+    expect(pages.some((page) => page.textContent?.includes("NestedLayout"))).toBe(true);
+    expect(pages.some((page) => page.textContent?.includes("OversizedPage"))).toBe(true);
   });
 });

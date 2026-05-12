@@ -1,9 +1,13 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App.tsx";
 
 describe("App", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     vi.stubGlobal(
       "requestAnimationFrame",
@@ -29,5 +33,17 @@ describe("App", () => {
     expect(screen.getAllByText("Table Rows Demo")).not.toHaveLength(0);
     expect(screen.getAllByText("Channel")).not.toHaveLength(0);
     expect(screen.getByRole("option", { name: "Table Rows" })).toBeInTheDocument();
+  });
+
+  it("switches to the nested layout scenario", () => {
+    render(React.createElement(App));
+
+    fireEvent.change(screen.getByLabelText("Scenario"), {
+      target: { value: "nested-layout" },
+    });
+
+    expect(screen.getAllByText("Nested Layout Demo")).not.toHaveLength(0);
+    expect(screen.getAllByText("Prescription Layout")).not.toHaveLength(0);
+    expect(screen.getAllByText("Facid HC 2% / 1% Cream")).not.toHaveLength(0);
   });
 });

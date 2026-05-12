@@ -1,3 +1,4 @@
+import { layout as measurePreparedText, prepare as prepareText } from "@chenglou/pretext";
 import { resolvePageSize } from "../utils/page-size.js";
 import type { PageSize } from "../types.js";
 
@@ -18,6 +19,8 @@ type PageElements = {
   header: HTMLDivElement;
   footer: HTMLDivElement;
 };
+
+type FragmentOutcome = "fit-all" | "split" | "none-fit";
 
 function getDirectSlot(
   parent: Element,
@@ -143,6 +146,411 @@ function bodyHasOverflow(body: HTMLElement): boolean {
 
 function collectBodyBlocks(bodySlot: HTMLElement): HTMLElement[] {
   return Array.from(bodySlot.children) as HTMLElement[];
+}
+
+function hasRenderableContent(node: Node): boolean {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return (node.textContent ?? "").length > 0;
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return node.childNodes.length > 0;
+  }
+
+  const element = node as Element;
+  return element.childNodes.length > 0 || (element.textContent?.length ?? 0) > 0;
+}
+
+function pruneEmptyBranches(node: HTMLElement): void {
+  for (const child of Array.from(node.children)) {
+    pruneEmptyBranches(child as HTMLElement);
+  }
+
+  for (const child of Array.from(node.children)) {
+    if (!hasRenderableContent(child)) {
+      child.remove();
+    }
+  }
+}
+
+function appendRemainingChildClones(
+  sourceChildren: ChildNode[],
+  startIndex: number,
+  target: HTMLElement,
+): void {
+  for (let index = startIndex; index < sourceChildren.length; index += 1) {
+    const child = sourceChildren[index];
+    if (child) {
+      target.appendChild(child.cloneNode(true));
+    }
+  }
+}
+
+function getLineHeightPx(style: CSSStyleDeclaration): number {
+  const lineHeight = Number.parseFloat(style.lineHeight);
+  if (Number.isFinite(lineHeight)) {
+    return lineHeight;
+  }
+
+  const fontSize = Number.parseFloat(style.fontSize);
+  return Number.isFinite(fontSize) ? fontSize * 1.2 : 16 * 1.2;
+}
+
+function getLetterSpacingPx(style: CSSStyleDeclaration): number {
+  const letterSpacing = Number.parseFloat(style.letterSpacing);
+  return Number.isFinite(letterSpacing) ? letterSpacing : 0;
+}
+
+function getFontShorthand(style: CSSStyleDeclaration): string {
+  if (style.font) {
+    return style.font;
+  }
+
+  const fontStyle = style.fontStyle || "normal";
+  const fontVariant = style.fontVariant || "normal";
+  const fontWeight = style.fontWeight || "400";
+  const fontStretch = style.fontStretch || "normal";
+  const fontSize = style.fontSize || "16px";
+  const fontFamily = style.fontFamily || "sans-serif";
+
+  return `${fontStyle} ${fontVariant} ${fontWeight} ${fontStretch} ${fontSize} ${fontFamily}`;
+}
+
+function getGraphemeSegments(text: string): string[] {
+  const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+  return Array.from(segmenter.segment(text), (segment) => segment.segment);
+}
+
+function measureTextHeight(
+  text: string,
+  contextElement: HTMLElement,
+  maxWidth: number,
+): number | null {
+  if (typeof navigator !== "undefined" && /jsdom/i.test(navigator.userAgent)) {
+    return null;
+  }
+
+  const style = window.getComputedStyle(contextElement);
+
+  try {
+    const prepared = prepareText(text, getFontShorthand(style), {
+      letterSpacing: getLetterSpacingPx(style),
+      whiteSpace: style.whiteSpace === "pre-wrap" ? "pre-wrap" : "normal",
+      wordBreak: style.wordBreak === "keep-all" ? "keep-all" : "normal",
+    });
+    return measurePreparedText(prepared, maxWidth, getLineHeightPx(style)).height;
+  } catch {
+    return null;
+  }
+}
+
+function findTextSplitIndex(params: {
+  text: string;
+  contextElement: HTMLElement;
+  targetParent: HTMLElement;
+  pageBody: HTMLElement;
+  availableHeight: number;
+}): number {
+  const { text, contextElement, targetParent, pageBody, availableHeight } = params;
+  const graphemes = getGraphemeSegments(text);
+  if (graphemes.length === 0) {
+    return 0;
+  }
+
+  const maxWidth =
+    contextElement.getBoundingClientRect().width || contextElement.clientWidth || pageBody.clientWidth;
+  const fitsByDom = (count: number): boolean => {
+    if (count <= 0) {
+      return false;
+    }
+
+    const probe = document.createTextNode(graphemes.slice(0, count).join(""));
+    targetParent.appendChild(probe);
+    const fits = !bodyHasOverflow(pageBody);
+    targetParent.removeChild(probe);
+    return fits;
+  };
+
+  const estimatedHeight = maxWidth > 0 ? measureTextHeight(text, contextElement, maxWidth) : null;
+  if (estimatedHeight !== null && estimatedHeight <= availableHeight && fitsByDom(graphemes.length)) {
+    return graphemes.length;
+  }
+
+  let low = 1;
+  let high = graphemes.length;
+  let best = 0;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const candidate = graphemes.slice(0, mid).join("");
+    const candidateHeight =
+      maxWidth > 0 ? measureTextHeight(candidate, contextElement, maxWidth) : null;
+
+    if (candidateHeight !== null && candidateHeight > availableHeight) {
+      high = mid - 1;
+      continue;
+    }
+
+    if (fitsByDom(mid)) {
+      best = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return best;
+}
+
+function splitTextNodeToFit(params: {
+  sourceText: Text;
+  targetParent: HTMLElement;
+  pageBody: HTMLElement;
+  baselineHeight: number;
+}): { head: Text | null; tail: Text | null } {
+  const { sourceText, targetParent, pageBody, baselineHeight } = params;
+  const text = sourceText.textContent ?? "";
+  if (text.length === 0) {
+    return { head: null, tail: null };
+  }
+
+  const graphemes = getGraphemeSegments(text);
+  const availableHeight = Math.max(0, pageBody.clientHeight - baselineHeight);
+  const best = findTextSplitIndex({
+    availableHeight,
+    contextElement: sourceText.parentElement ?? targetParent,
+    pageBody,
+    targetParent,
+    text,
+  });
+
+  if (best <= 0) {
+    return { head: null, tail: document.createTextNode(text) };
+  }
+
+  const headText = graphemes.slice(0, best).join("");
+  const tailText = graphemes.slice(best).join("");
+
+  return {
+    head: document.createTextNode(headText),
+    tail: tailText.length > 0 ? document.createTextNode(tailText) : null,
+  };
+}
+
+function fragmentChildNodesToFit(params: {
+  sourceChildren: ChildNode[];
+  fittedParent: HTMLElement;
+  overflowParent: HTMLElement;
+  pageBody: HTMLElement;
+}): FragmentOutcome {
+  const { sourceChildren, fittedParent, overflowParent, pageBody } = params;
+
+  for (const [index, child] of sourceChildren.entries()) {
+    const hadPriorContent = hasRenderableContent(fittedParent);
+
+    if (child.nodeType === Node.TEXT_NODE) {
+      const baselineHeight = pageBody.scrollHeight;
+      const fullClone = child.cloneNode(true) as Text;
+      fittedParent.appendChild(fullClone);
+
+      if (!bodyHasOverflow(pageBody)) {
+        continue;
+      }
+
+      fittedParent.removeChild(fullClone);
+      const split = splitTextNodeToFit({
+        sourceText: child as Text,
+        targetParent: fittedParent,
+        pageBody,
+        baselineHeight,
+      });
+
+      if (!split.head) {
+        if (hadPriorContent) {
+          overflowParent.appendChild(child.cloneNode(true));
+          appendRemainingChildClones(sourceChildren, index + 1, overflowParent);
+          return "split";
+        }
+
+        return "none-fit";
+      }
+
+      fittedParent.appendChild(split.head);
+      if (split.tail) {
+        overflowParent.appendChild(split.tail);
+      }
+      appendRemainingChildClones(sourceChildren, index + 1, overflowParent);
+      return "split";
+    }
+
+    if (child.nodeType !== Node.ELEMENT_NODE) {
+      const fullClone = child.cloneNode(true);
+      fittedParent.appendChild(fullClone);
+      if (!bodyHasOverflow(pageBody)) {
+        continue;
+      }
+      fittedParent.removeChild(fullClone);
+
+      if (hadPriorContent) {
+        overflowParent.appendChild(child.cloneNode(true));
+        appendRemainingChildClones(sourceChildren, index + 1, overflowParent);
+        return "split";
+      }
+
+      return "none-fit";
+    }
+
+    const sourceElement = child as HTMLElement;
+    const fullClone = sourceElement.cloneNode(true) as HTMLElement;
+    fittedParent.appendChild(fullClone);
+    if (!bodyHasOverflow(pageBody)) {
+      continue;
+    }
+    fittedParent.removeChild(fullClone);
+
+    if (shouldAvoidBreakInside(sourceElement) && hadPriorContent) {
+      overflowParent.appendChild(fullClone);
+      appendRemainingChildClones(sourceChildren, index + 1, overflowParent);
+      return "split";
+    }
+
+    const headChild = sourceElement.cloneNode(false) as HTMLElement;
+    const tailChild = sourceElement.cloneNode(false) as HTMLElement;
+    fittedParent.appendChild(headChild);
+
+    const childOutcome = fragmentChildNodesToFit({
+      sourceChildren: Array.from(sourceElement.childNodes),
+      fittedParent: headChild,
+      overflowParent: tailChild,
+      pageBody,
+    });
+
+    pruneEmptyBranches(headChild);
+    pruneEmptyBranches(tailChild);
+
+    if (!hasRenderableContent(headChild)) {
+      headChild.remove();
+    }
+
+    if (childOutcome === "fit-all" && !bodyHasOverflow(pageBody)) {
+      continue;
+    }
+
+    if (childOutcome === "split") {
+      if (hasRenderableContent(tailChild)) {
+        overflowParent.appendChild(tailChild);
+      }
+      appendRemainingChildClones(sourceChildren, index + 1, overflowParent);
+      return "split";
+    }
+
+    if (headChild.isConnected) {
+      headChild.remove();
+    }
+
+    if (hadPriorContent) {
+      overflowParent.appendChild(fullClone);
+      appendRemainingChildClones(sourceChildren, index + 1, overflowParent);
+      return "split";
+    }
+
+    return "none-fit";
+  }
+
+  return "fit-all";
+}
+
+function fragmentElementToFit(
+  sourceElement: HTMLElement,
+  pageBody: HTMLElement,
+): { head: HTMLElement | null; tail: HTMLElement | null } | null {
+  const head = sourceElement.cloneNode(false) as HTMLElement;
+  const tail = sourceElement.cloneNode(false) as HTMLElement;
+  pageBody.appendChild(head);
+
+  const outcome = fragmentChildNodesToFit({
+    sourceChildren: Array.from(sourceElement.childNodes),
+    fittedParent: head,
+    overflowParent: tail,
+    pageBody,
+  });
+
+  pruneEmptyBranches(head);
+  pruneEmptyBranches(tail);
+
+  if (!hasRenderableContent(head)) {
+    head.remove();
+  }
+
+  if (!hasRenderableContent(tail)) {
+    tail.remove();
+  }
+
+  if (outcome === "none-fit") {
+    head.remove();
+    tail.remove();
+    return null;
+  }
+
+  return {
+    head: hasRenderableContent(head) ? head : null,
+    tail: hasRenderableContent(tail) ? tail : null,
+  };
+}
+
+function paginateFragmentableBlock(params: {
+  block: HTMLElement;
+  currentPage: PageElements;
+  createSegmentPage: () => PageElements;
+}): PageElements {
+  const { block, createSegmentPage } = params;
+  let currentPage = params.currentPage;
+  let pendingBlock: HTMLElement | null = block;
+
+  while (pendingBlock) {
+    const pageWasEmpty = currentPage.body.childElementCount === 0;
+    const fullClone = pendingBlock.cloneNode(true) as HTMLElement;
+    currentPage.body.appendChild(fullClone);
+
+    if (!bodyHasOverflow(currentPage.body)) {
+      return currentPage;
+    }
+
+    currentPage.body.removeChild(fullClone);
+
+    if (shouldAvoidBreakInside(pendingBlock)) {
+      if (pageWasEmpty) {
+        currentPage.body.appendChild(fullClone);
+        currentPage.page.setAttribute("data-paged-react-oversized", "true");
+        currentPage.page.setAttribute("data-paged-react-break-inside-avoid", "true");
+        return currentPage;
+      }
+
+      currentPage = createSegmentPage();
+      continue;
+    }
+
+    const fragment = fragmentElementToFit(pendingBlock, currentPage.body);
+    if (fragment?.tail) {
+      pendingBlock = fragment.tail;
+      currentPage = createSegmentPage();
+      continue;
+    }
+
+    if (fragment?.head) {
+      return currentPage;
+    }
+
+    if (pageWasEmpty) {
+      currentPage.body.appendChild(fullClone);
+      currentPage.page.setAttribute("data-paged-react-oversized", "true");
+      return currentPage;
+    }
+
+    currentPage = createSegmentPage();
+  }
+
+  return currentPage;
 }
 
 function getTableRows(table: HTMLTableElement): HTMLTableRowElement[] {
@@ -306,10 +714,7 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
         return;
       }
       if (block.hasAttribute("data-paged-react-page-break")) {
-        currentPage = createPage(pagesRoot, segmentPageSize, pageNumber++);
-        currentPage.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
-        cloneChildrenInto(currentPage.header, headerSlot);
-        cloneChildrenInto(currentPage.footer, footerSlot);
+        currentPage = createSegmentPage();
         continue;
       }
 
@@ -331,36 +736,11 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
         continue;
       }
 
-      const pageWasEmpty = currentPage.body.childElementCount === 0;
-      const clone = block.cloneNode(true) as HTMLElement;
-      currentPage.body.appendChild(clone);
-
-      if (bodyHasOverflow(currentPage.body)) {
-        if (pageWasEmpty) {
-          currentPage.page.setAttribute("data-paged-react-oversized", "true");
-          if (shouldAvoidBreakInside(block)) {
-            currentPage.page.setAttribute("data-paged-react-break-inside-avoid", "true");
-          }
-        } else {
-          currentPage.body.removeChild(clone);
-
-          const nextPage = createPage(pagesRoot, segmentPageSize, pageNumber++);
-          nextPage.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
-          cloneChildrenInto(nextPage.header, headerSlot);
-          cloneChildrenInto(nextPage.footer, footerSlot);
-          nextPage.body.appendChild(clone);
-
-          if (shouldAvoidBreakInside(block)) {
-            nextPage.page.setAttribute("data-paged-react-break-inside-avoid", "true");
-          }
-
-          if (bodyHasOverflow(nextPage.body)) {
-            nextPage.page.setAttribute("data-paged-react-oversized", "true");
-          }
-
-          currentPage = nextPage;
-        }
-      }
+      currentPage = paginateFragmentableBlock({
+        block,
+        currentPage,
+        createSegmentPage,
+      });
 
       if (shouldBreakAfter(block)) {
         currentPage = createSegmentPage();

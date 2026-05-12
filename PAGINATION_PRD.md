@@ -30,6 +30,7 @@
 - [x] Repeated table headers.
 - [ ] Long unbroken string handling.
 - [ ] Inline text splitting.
+- [ ] Deeply nested layout handling.
 
 ## Phase 4 - Scale
 
@@ -37,4 +38,3 @@
 - [ ] 100+ page behavior/performance scenario.
 - [ ] Advanced `break-inside` avoidance policy.
 - [ ] Metadata API.
-- [ ] Deeply nested layout handling.

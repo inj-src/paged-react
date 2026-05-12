@@ -10,11 +10,6 @@
     /* Bundler mode */
     "moduleResolution": "bundler",
     "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
-    "paths": {
-      "paged-react": ["../../packages/paged-react/src/index.ts"],
-      "paged-react/styles.css": ["../../packages/paged-react/src/styles.css"]
-    },
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",

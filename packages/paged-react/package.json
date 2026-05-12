@@ -1,5 +1,5 @@
 {
-  "name": "paged-react",
+  "name": "@repo/paged-react",
   "version": "0.0.0",
   "description": "React components for print-ready documents with automatic pagination.",
   "type": "module",
@@ -30,6 +30,9 @@
   "peerDependencies": {
     "react": ">=18 <20",
     "react-dom": ">=18 <20"
+  },
+  "dependencies": {
+    "@chenglou/pretext": "^0.0.6"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

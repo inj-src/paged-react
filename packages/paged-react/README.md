@@ -1,12 +1,12 @@
-# paged-react
+# @repo/paged-react
 
 React components for building print-ready documents with automatic pagination.
 
 ## Basic Shape
 
 ```tsx
-import { Document, PageBreak, pageSizes } from "paged-react";
-import "paged-react/styles.css";
+import { Document, PageBreak, pageSizes } from "@repo/paged-react";
+import "@repo/paged-react/styles.css";
 
 export function Report() {
   return (
@@ -39,7 +39,7 @@ Slots accept normal `div` props such as `className`, `style`, `id`, `data-*`, an
 
 ## Styling Hooks
 
-Import `paged-react/styles.css` once.
+Import `@repo/paged-react/styles.css` once.
 
 - `[data-paged-react-document]`: root container
 - `[data-paged-react-pages]`: generated pages wrapper
@@ -66,6 +66,12 @@ Consumer spacing such as page margins should be applied through normal CSS on yo
 - The first fragment keeps the original `<thead>`.
 - Continuation fragments repeat `<thead>` only when `repeatTableHeader` is set on the owning `Document.Segment`.
 
+## Text and Nested Layouts
+
+- Long unbroken text can continue across pages inside text-bearing blocks.
+- Nested block layouts are fragmented recursively instead of being moved only as one oversized root block.
+- The fragmentation path is block-oriented. It can split nested elements and text nodes, but it is not a full browser print engine.
+
 ## Test Coverage
 
 Current package tests cover:
@@ -74,3 +80,6 @@ Current package tests cover:
 - legacy CSS break rules
 - oversized block fallback
 - repeated header/footer cloning
+- table row splitting with and without repeated headers
+- long unbroken text splitting
+- nested layout fragmentation
