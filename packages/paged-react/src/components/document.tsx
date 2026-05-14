@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef } from "react";
 import { paginateDocument } from "../core/paginate.js";
 import { createPageSizeStyle } from "../utils/page-size.js";
 import type {
@@ -7,7 +7,6 @@ import type {
   DocumentHeaderProps,
   DocumentProps,
   DocumentSegmentProps,
-  StyleWithPageVars,
 } from "../types.js";
 
 type DocumentComponent = ReturnType<typeof forwardRef<HTMLDivElement, DocumentProps>> & {
@@ -18,23 +17,12 @@ type DocumentComponent = ReturnType<typeof forwardRef<HTMLDivElement, DocumentPr
 };
 
 export const DocumentSegment = forwardRef<HTMLDivElement, DocumentSegmentProps>(
-  function DocumentSegment(
-    { children, pageSize, repeatTableHeader = false, style, ...props },
-    ref,
-  ) {
-    const pageStyle = createPageSizeStyle(
-      pageSize,
-      style as StyleWithPageVars | undefined,
-    );
+  function DocumentSegment({ children, pageSize, repeatTableHeader, style, ...props }, ref) {
+    const pageStyle = createPageSizeStyle(pageSize, style);
+    void repeatTableHeader;
 
     return (
-      <div
-        {...props}
-        ref={ref}
-        data-paged-react-segment=""
-        data-paged-react-repeat-table-header={repeatTableHeader ? "true" : undefined}
-        style={pageStyle}
-      >
+      <div {...props} ref={ref} data-paged-react-segment="" style={pageStyle}>
         {children}
       </div>
     );
@@ -51,15 +39,16 @@ export const DocumentHeader = forwardRef<HTMLDivElement, DocumentHeaderProps>(
   },
 );
 
-export const DocumentBody = forwardRef<HTMLDivElement, DocumentBodyProps>(
-  function DocumentBody({ children, ...props }, ref) {
-    return (
-      <div {...props} ref={ref} data-paged-react-body="">
-        {children}
-      </div>
-    );
-  },
-);
+export const DocumentBody = forwardRef<HTMLDivElement, DocumentBodyProps>(function DocumentBody(
+  { children, ...props },
+  ref,
+) {
+  return (
+    <div {...props} ref={ref} data-paged-react-body="">
+      {children}
+    </div>
+  );
+});
 
 export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(
   function DocumentFooter({ children, ...props }, ref) {
@@ -71,96 +60,71 @@ export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(
   },
 );
 
-const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(
-  function Document(
-    { children, pageSize, pruneSourceAfterPagination = false, style, ...props },
-    ref,
-  ) {
-    const rootRef = useRef<HTMLDivElement | null>(null);
-    const sourceRef = useRef<HTMLDivElement | null>(null);
-    const pagesRef = useRef<HTMLDivElement | null>(null);
-    const [isSourceMounted, setIsSourceMounted] = useState(true);
+const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document(
+  { children, pageSize, pruneSourceAfterPagination, style, ...props },
+  ref,
+) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const sourceRef = useRef<HTMLDivElement | null>(null);
+  const pagesRef = useRef<HTMLDivElement | null>(null);
 
-    const mergedRef = useMemo(() => {
-      return (node: HTMLDivElement | null) => {
-        rootRef.current = node;
-        if (typeof ref === "function") {
-          ref(node);
-        } else if (ref) {
-          ref.current = node;
-        }
-      };
-    }, [ref]);
+  // TODO: implement source pruning after pagination
+  void pruneSourceAfterPagination;
 
-    const pageStyle = createPageSizeStyle(
+  const mergedRef = useMemo(() => {
+    return (node: HTMLDivElement | null) => {
+      rootRef.current = node;
+      if (typeof ref === "function") {
+        ref(node);
+      } else if (ref) {
+        ref.current = node;
+      }
+    };
+  }, [ref]);
+
+  const pageStyle = createPageSizeStyle(pageSize, style);
+
+  useEffect(() => {
+    const sourceRoot = sourceRef.current;
+    const pagesRoot = pagesRef.current;
+
+    if (!sourceRoot || !pagesRoot) {
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    void paginateDocument({
+      sourceRoot,
+      pagesRoot,
       pageSize,
-      style as StyleWithPageVars | undefined,
-    );
+      signal: abortController.signal,
+    });
 
-    useEffect(() => {
-      if (!pruneSourceAfterPagination) {
-        setIsSourceMounted(true);
-        return;
-      }
+    return () => {
+      abortController.abort();
+    };
+  }, [children, pageSize]);
 
-      setIsSourceMounted(true);
-    }, [children, pageSize, pruneSourceAfterPagination]);
-
-    useEffect(() => {
-      const sourceRoot = sourceRef.current;
-      const pagesRoot = pagesRef.current;
-
-      if (!sourceRoot || !pagesRoot) {
-        return;
-      }
-
-      let cancelled = false;
-      const abortController = new AbortController();
-
-      void paginateDocument({
-        sourceRoot,
-        pagesRoot,
-        pageSize,
-        signal: abortController.signal,
-      }).then(() => {
-        if (!cancelled && pruneSourceAfterPagination) {
-          setIsSourceMounted(false);
-        }
-      });
-
-      return () => {
-        cancelled = true;
-        abortController.abort();
-      };
-    }, [children, isSourceMounted, pageSize, pruneSourceAfterPagination]);
-
-    return (
+  return (
+    <div {...props} ref={mergedRef} data-paged-react-document="" style={pageStyle}>
       <div
-        {...props}
-        ref={mergedRef}
-        data-paged-react-document=""
-        style={pageStyle}
+        data-paged-react-source=""
+        ref={sourceRef}
+        style={{
+          left: "-100000px",
+          pointerEvents: "none",
+          position: "absolute",
+          top: 0,
+          visibility: "hidden",
+        }}
       >
-        {isSourceMounted ? (
-          <div
-            data-paged-react-source=""
-            ref={sourceRef}
-            style={{
-              left: "-100000px",
-              pointerEvents: "none",
-              position: "absolute",
-              top: 0,
-              visibility: "hidden",
-            }}
-          >
-            {children}
-          </div>
-        ) : null}
-        <div data-paged-react-pages="" ref={pagesRef} />
+        {children}
       </div>
-    );
-  },
-);
+      <div data-paged-react-pages="" ref={pagesRef} />
+    </div>
+  );
+});
 
 export const Document = Object.assign(DocumentRoot, {
   Segment: DocumentSegment,

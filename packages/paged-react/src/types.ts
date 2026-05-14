@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef, CSSProperties, ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 export type PageSizeName =
   | "A0"
@@ -49,9 +49,4 @@ export type DocumentBodyProps = SlotProps & {
 
 export type DocumentFooterProps = SlotProps & {
   children?: ReactNode;
-};
-
-export type StyleWithPageVars = CSSProperties & {
-  "--paged-react-page-width"?: string;
-  "--paged-react-page-height"?: string;
 };

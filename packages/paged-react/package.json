@@ -23,6 +23,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json && cp src/styles.css dist/styles.css",
+    "dev": "node scripts/dev.mjs",
     "check-types": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run"

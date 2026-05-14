@@ -1,5 +1,6 @@
 import { pageSizes } from "../page-sizes.js";
-import type { PageSize, PageSizeValue, StyleWithPageVars } from "../types.js";
+import type { CSSProperties } from "react";
+import type { PageSize, PageSizeValue } from "../types.js";
 
 export function resolvePageSize(pageSize?: PageSize): PageSizeValue | undefined {
   if (!pageSize) {
@@ -15,8 +16,8 @@ export function resolvePageSize(pageSize?: PageSize): PageSizeValue | undefined 
 
 export function createPageSizeStyle(
   pageSize: PageSize | undefined,
-  style: StyleWithPageVars | undefined,
-): StyleWithPageVars | undefined {
+  style: CSSProperties | undefined,
+): CSSProperties | undefined {
   const resolved = resolvePageSize(pageSize);
 
   if (!resolved) {
@@ -27,5 +28,5 @@ export function createPageSizeStyle(
     ...style,
     "--paged-react-page-width": resolved.width,
     "--paged-react-page-height": resolved.height,
-  };
+  } as CSSProperties;
 }
