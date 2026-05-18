@@ -26,6 +26,7 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
   pagesRoot.textContent = "";
 
   const documentPageSize = resolvePageSize(pageSize) ?? { width: "210mm", height: "297mm" };
+
   const segments = Array.from(
     sourceRoot.querySelectorAll(":scope > [data-paged-react-segment]"),
   ) as HTMLElement[];
@@ -97,18 +98,20 @@ function bodySegmenter(
     return bodySegments;
   }
 
-  function splitElement(childList: NodeList, parent: HTMLElement) {
-    const segment = parent.cloneNode(false) as HTMLElement;
+  function splitElement(parent: HTMLElement) {
+    const segmentNodes = [];
 
-    for (const target of childList) {
+    for (const target of parent.childNodes) {
       if (target instanceof HTMLElement) {
-        const needsSplit = needsSplitting(target, maxBodyHeight, bodyRect, bodySegments.length + 1);
+        const needsSplit = doNeedToSplit({ bodyRect, target, maxBodyHeight });
 
         if (needsSplit) {
-          return splitElement(target.childNodes, target);
+          const childSegment = splitElement(target);
+          segmentNodes.push(childSegment);
+          break;
+        } else {
+          segmentNodes.push(target);
         }
-
-        segment.appendChild(target);
       }
       if (target instanceof Text) {
         // TODO: Implement text splitting logic here
@@ -118,28 +121,21 @@ function bodySegmenter(
       }
     }
 
+    const segment = parent.cloneNode(false) as HTMLElement;
+    segment.append(...segmentNodes);
+
     return segment;
   }
 
-  const segment = splitElement(body.childNodes, body);
+  const segment = splitElement(body);
   bodySegments.push(segment);
 
   return bodySegmenter(body, maxBodyHeight, bodySegments);
 }
 
-function needsSplitting(
-  element: HTMLElement,
-  maxHeight: number,
-  bodyRect: DOMRect,
-  bodySegmentNo: number,
-): boolean {
-  const elementRect = element.getBoundingClientRect();
-  const cumulativeHeight = elementRect.bottom - bodyRect.top;
+function doNeedToSplit(ctx: { bodyRect: DOMRect; target: HTMLElement; maxBodyHeight: number }) {
+  const { bodyRect, target, maxBodyHeight } = ctx;
+  const targetRect = target.getBoundingClientRect();
 
-  if (cumulativeHeight > maxHeight) {
-    console.log(`Element ${element.tagName} at segment ${bodySegmentNo} exceeds max body height.`);
-    return true;
-  }
-
-  return false;
+  return targetRect.bottom - bodyRect.top > maxBodyHeight;
 }
