@@ -92,50 +92,77 @@ function bodySegmenter(
   if (!body) return bodySegments;
 
   const bodyRect = body.getBoundingClientRect();
+  const bodyHeight = bodyRect.height;
 
-  if (bodyRect.height <= maxBodyHeight) {
-    bodySegments.push(body);
+  if (bodyHeight <= maxBodyHeight) {
+    bodySegments.push(body.cloneNode(true) as HTMLElement);
     return bodySegments;
   }
 
-  function splitElement(parent: HTMLElement) {
-    const segmentNodes = [];
+  function clonePageSlice(
+    parent: HTMLElement,
+    startOffset: number,
+    endOffset: number,
+  ): HTMLElement | null {
+    const segment = parent.cloneNode(false) as HTMLElement;
 
     for (const target of parent.childNodes) {
       if (target instanceof HTMLElement) {
-        const needsSplit = doNeedToSplit({ bodyRect, target, maxBodyHeight });
+        const targetRect = target.getBoundingClientRect();
+        const targetTop = targetRect.top - bodyRect.top;
+        const targetBottom = targetRect.bottom - bodyRect.top;
 
-        if (needsSplit) {
-          const childSegment = splitElement(target);
-          segmentNodes.push(childSegment);
-          break;
-        } else {
-          segmentNodes.push(target);
+        if (targetBottom <= startOffset) {
+          continue;
         }
+
+        if (targetTop >= endOffset) {
+          break;
+        }
+
+        if (targetTop >= startOffset && targetBottom <= endOffset) {
+          segment.appendChild(target.cloneNode(true));
+          continue;
+        }
+
+        if (target.children.length === 0) {
+          segment.appendChild(target.cloneNode(true));
+          continue;
+        }
+
+        const childSegment = clonePageSlice(target, startOffset, endOffset);
+
+        if (childSegment?.childNodes.length) {
+          segment.appendChild(childSegment);
+          continue;
+        }
+
+        segment.appendChild(target.cloneNode(false));
+        continue;
       }
-      if (target instanceof Text) {
-        // TODO: Implement text splitting logic here
+
+      if (target instanceof Text && target.textContent?.trim()) {
         console.warn(
           `Text node splitting is not implemented yet. Node content: "${target.textContent}"`,
         );
+        break;
       }
     }
 
-    const segment = parent.cloneNode(false) as HTMLElement;
-    segment.append(...segmentNodes);
+    if (segment.childNodes.length) {
+      return segment;
+    }
 
-    return segment;
+    return null;
   }
 
-  const segment = splitElement(body);
-  bodySegments.push(segment);
+  for (let startOffset = 0; startOffset < bodyHeight; startOffset += maxBodyHeight) {
+    const segment = clonePageSlice(body, startOffset, startOffset + maxBodyHeight);
 
-  return bodySegmenter(body, maxBodyHeight, bodySegments);
-}
+    if (segment) {
+      bodySegments.push(segment);
+    }
+  }
 
-function doNeedToSplit(ctx: { bodyRect: DOMRect; target: HTMLElement; maxBodyHeight: number }) {
-  const { bodyRect, target, maxBodyHeight } = ctx;
-  const targetRect = target.getBoundingClientRect();
-
-  return targetRect.bottom - bodyRect.top > maxBodyHeight;
+  return bodySegments;
 }
