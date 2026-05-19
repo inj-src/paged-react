@@ -1,5 +1,3 @@
-import { resolvePageSize } from "../utils/page-size.js";
-
 import {
   cloneChildrenInto,
   createPage,
@@ -7,17 +5,15 @@ import {
   getEffectivePageSize,
   resolvePageSizeInPixels,
 } from "./utils.js";
-import type { PageSize } from "../types.js";
 
 type PaginationContext = {
-  sourceRoot: HTMLElement;
-  pagesRoot: HTMLElement;
-  pageSize?: PageSize;
+  sourceRoot: HTMLDivElement;
+  pagesRoot: HTMLDivElement;
   signal?: AbortSignal;
 };
 
 export async function paginateDocument(ctx: PaginationContext): Promise<void> {
-  const { sourceRoot, pagesRoot, pageSize, signal } = ctx;
+  const { sourceRoot, pagesRoot, signal } = ctx;
 
   if (signal?.aborted) {
     return;
@@ -25,28 +21,35 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
 
   pagesRoot.textContent = "";
 
-  const documentPageSize = resolvePageSize(pageSize) ?? { width: "210mm", height: "297mm" };
-
   const segments = Array.from(
     sourceRoot.querySelectorAll(":scope > [data-paged-react-segment]"),
-  ) as HTMLElement[];
+  ) as HTMLDivElement[];
 
   for (const [segmentIndex, segment] of segments.entries()) {
     if (signal?.aborted) {
       return;
     }
 
-    const segmentPageSize = getEffectivePageSize(segment, documentPageSize);
+    const segmentPageSize = getEffectivePageSize(segment);
     const segmentPageSizePixels = resolvePageSizeInPixels(segmentPageSize);
 
     const headerSlot = getDirectSlot(segment, "header");
     const bodySlot = getDirectSlot(segment, "body");
     const footerSlot = getDirectSlot(segment, "footer");
 
-    const headerHeight = headerSlot ? headerSlot.offsetHeight : 0;
-    const footerHeight = footerSlot ? footerSlot.offsetHeight : 0;
+    let headerHeight = 0;
+    let footerHeight = 0;
 
-    const maxBodyHeight = segmentPageSizePixels.height - headerHeight - footerHeight;
+    if (headerSlot) {
+      headerHeight = headerSlot.offsetHeight;
+    }
+
+    if (footerSlot) {
+      footerHeight = footerSlot.offsetHeight;
+    }
+
+    const maxBodyHeight =
+      segmentPageSizePixels.height - headerHeight - footerHeight;
 
     if (maxBodyHeight <= 0) {
       console.warn(
@@ -55,9 +58,26 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
       continue;
     }
 
-    if (maxBodyHeight >= (bodySlot?.offsetHeight ?? 0)) {
-      const page = createPage(pagesRoot, segmentPageSize, segmentIndex + 1);
-      page.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
+    let bodyHeight = 0;
+
+    if (bodySlot) {
+      bodyHeight = bodySlot.offsetHeight;
+    }
+
+    if (maxBodyHeight >= bodyHeight) {
+      const page = createPage({
+        segment,
+        pagesRoot,
+        pageSize: segmentPageSize,
+        bodySlot,
+        headerSlot,
+        footerSlot,
+        pageNumber: segmentIndex + 1,
+      });
+      page.page.setAttribute(
+        "data-paged-react-segment-index",
+        String(segmentIndex),
+      );
 
       cloneChildrenInto(page.header, headerSlot);
       cloneChildrenInto(page.footer, footerSlot);
@@ -73,9 +93,24 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
         return;
       }
 
-      const page = createPage(pagesRoot, segmentPageSize, segmentIndex + 1);
-      page.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
-      page.page.setAttribute("data-paged-react-body-segment-index", String(bodyIndex));
+      const page = createPage({
+        segment,
+        pagesRoot,
+        pageSize: segmentPageSize,
+        bodySlot,
+        headerSlot,
+        footerSlot,
+        pageNumber: segmentIndex + 1,
+      });
+
+      page.page.setAttribute(
+        "data-paged-react-segment-index",
+        String(segmentIndex),
+      );
+      page.page.setAttribute(
+        "data-paged-react-body-segment-index",
+        String(bodyIndex),
+      );
 
       cloneChildrenInto(page.header, headerSlot);
       cloneChildrenInto(page.footer, footerSlot);
@@ -156,8 +191,16 @@ function bodySegmenter(
     return null;
   }
 
-  for (let startOffset = 0; startOffset < bodyHeight; startOffset += maxBodyHeight) {
-    const segment = clonePageSlice(body, startOffset, startOffset + maxBodyHeight);
+  for (
+    let startOffset = 0;
+    startOffset < bodyHeight;
+    startOffset += maxBodyHeight
+  ) {
+    const segment = clonePageSlice(
+      body,
+      startOffset,
+      startOffset + maxBodyHeight,
+    );
 
     if (segment) {
       bodySegments.push(segment);

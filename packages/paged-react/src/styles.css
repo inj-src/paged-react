@@ -28,23 +28,10 @@
   box-sizing: border-box;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  height: var(--paged-react-page-height, auto);
   overflow: hidden;
-  width: var(--paged-react-page-width, auto);
 }
 
 [data-paged-react-page-body] {
   min-height: 0;
   overflow: hidden;
-}
-
-[data-paged-react-segment] {
-  width: var(--paged-react-page-width, auto);
-  min-height: var(--paged-react-page-height, auto);
-}
-
-[data-paged-react-header],
-[data-paged-react-body],
-[data-paged-react-footer] {
-  display: block;
 }

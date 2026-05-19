@@ -10,8 +10,12 @@ import "@repo/paged-react/styles.css";
 
 export function Report() {
   return (
-    <Document pageSize={pageSizes.A4} pruneSourceAfterPagination>
-      <Document.Segment className="p-[20mm]" repeatTableHeader>
+    <Document pruneSourceAfterPagination>
+      <Document.Segment
+        pageSize={pageSizes.A4}
+        className="p-[20mm]"
+        repeatTableHeader
+      >
         <Document.Header>
           <header>Quarterly Report</header>
         </Document.Header>
@@ -35,6 +39,8 @@ Slots accept normal `div` props such as `className`, `style`, `id`, `data-*`, an
 
 `Document` keeps its source tree hidden for pagination measurement. If your document is static after render, set `pruneSourceAfterPagination` to unmount the source tree after pagination completes.
 
+`Document.Segment` requires `pageSize`, so each segment owns its generated page dimensions.
+
 `Document.Segment` also accepts `repeatTableHeader`. When enabled, paginated table fragments repeat the original `<thead>` on continuation pages.
 
 ## Styling Hooks
@@ -47,8 +53,6 @@ Import `@repo/paged-react/styles.css` once.
 - `[data-paged-react-page-header]`: rendered header slot
 - `[data-paged-react-page-body]`: rendered body slot
 - `[data-paged-react-page-footer]`: rendered footer slot
-- `--paged-react-page-width`: resolved page width
-- `--paged-react-page-height`: resolved page height
 
 Consumer spacing such as page margins should be applied through normal CSS on your segment and slot content.
 

@@ -14,12 +14,15 @@ export type ResolvedPageSize = {
 export function getDirectSlot(
   parent: Element,
   attribute: "header" | "body" | "footer",
-): HTMLElement | null {
+): HTMLDivElement | null {
   return parent.querySelector(`:scope > [data-paged-react-${attribute}]`);
 }
 
 /** Clones all child nodes from a source slot into a target element. */
-export function cloneChildrenInto(target: HTMLElement, source: HTMLElement | null): void {
+export function cloneChildrenInto(
+  target: HTMLElement,
+  source: HTMLElement | null,
+): void {
   if (!source) {
     return;
   }
@@ -29,14 +32,14 @@ export function cloneChildrenInto(target: HTMLElement, source: HTMLElement | nul
   }
 }
 
-/** Reads page size CSS variables from a segment, falling back to the document size. */
-export function getEffectivePageSize(
-  el: HTMLElement,
-  fallback: ResolvedPageSize,
-): ResolvedPageSize {
-  const style = window.getComputedStyle(el);
-  const width = style.getPropertyValue("--paged-react-page-width").trim() || fallback.width;
-  const height = style.getPropertyValue("--paged-react-page-height").trim() || fallback.height;
+/** Reads page size attributes from a segment. */
+export function getEffectivePageSize(el: HTMLElement): ResolvedPageSize {
+  const width = el.dataset.pagedReactPageWidth;
+  const height = el.dataset.pagedReactPageHeight;
+
+  if (!width || !height) {
+    throw new Error("Document.Segment requires a resolved page size.");
+  }
 
   return { width, height };
 }
@@ -64,25 +67,50 @@ export function resolvePageSizeInPixels(pageSize: ResolvedPageSize) {
 }
 
 /** Creates the generated page shell used by the pagination engine. */
-export function createPage(
-  pagesRoot: HTMLElement,
-  pageSize: ResolvedPageSize,
-  pageNumber: number,
-): PageElements {
-  const page = document.createElement("div");
+export function createPage({
+  pagesRoot,
+  headerSlot,
+  footerSlot,
+  bodySlot,
+  segment,
+  pageSize,
+  pageNumber,
+}: {
+  pagesRoot: HTMLDivElement;
+  headerSlot: HTMLDivElement | null;
+  footerSlot: HTMLDivElement | null;
+  bodySlot: HTMLDivElement | null;
+  pageSize: ResolvedPageSize;
+  segment: HTMLDivElement;
+  pageNumber: number;
+}): PageElements {
+  const page = segment.cloneNode(false) as HTMLDivElement;
+  page.removeAttribute("data-paged-react-segment");
   page.setAttribute("data-paged-react-page", "");
   page.setAttribute("data-page-number", String(pageNumber));
-  page.style.setProperty("--paged-react-page-width", pageSize.width);
-  page.style.setProperty("--paged-react-page-height", pageSize.height);
+  page.style.height = pageSize.height;
+  page.style.width = pageSize.width;
 
-  const header = document.createElement("div");
+  let header = document.createElement("div");
+  if (headerSlot) {
+    header = headerSlot.cloneNode(false) as HTMLDivElement;
+  }
   header.setAttribute("data-paged-react-page-header", "");
+  header.removeAttribute("data-paged-react-header");
 
-  const body = document.createElement("div");
+  let body = document.createElement("div");
+  if (bodySlot) {
+    body = bodySlot.cloneNode(false) as HTMLDivElement;
+  }
   body.setAttribute("data-paged-react-page-body", "");
+  body.removeAttribute("data-paged-react-body");
 
-  const footer = document.createElement("div");
+  let footer = document.createElement("div");
+  if (footerSlot) {
+    footer = footerSlot.cloneNode(false) as HTMLDivElement;
+  }
   footer.setAttribute("data-paged-react-page-footer", "");
+  footer.removeAttribute("data-paged-react-footer");
 
   page.append(header, body, footer);
   pagesRoot.appendChild(page);
