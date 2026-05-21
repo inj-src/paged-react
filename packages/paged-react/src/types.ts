@@ -35,7 +35,6 @@ export type DocumentProps = SlotProps & {
 export type DocumentSegmentProps = SlotProps & {
   children?: ReactNode;
   pageSize: PageSize;
-  repeatTableHeader?: boolean;
 };
 
 export type DocumentHeaderProps = SlotProps & {

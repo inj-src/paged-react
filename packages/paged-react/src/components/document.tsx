@@ -17,9 +17,8 @@ type DocumentComponent = ReturnType<typeof forwardRef<HTMLDivElement, DocumentPr
 };
 
 export const DocumentSegment = forwardRef<HTMLDivElement, DocumentSegmentProps>(
-  function DocumentSegment({ children, pageSize, repeatTableHeader, style, ...props }, ref) {
+  function DocumentSegment({ children, pageSize, style, ...props }, ref) {
     const resolvedPageSize = resolvePageSize(pageSize);
-    void repeatTableHeader;
 
     return (
       <div

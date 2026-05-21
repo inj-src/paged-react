@@ -179,6 +179,9 @@ function bodySegmenter(
 
         if (targetBottom <= maxBodyHeight && !hasNestedPageBreak) {
           segment.appendChild(target.cloneNode(true));
+          if (parent instanceof HTMLTableElement && target.tagName === "THEAD") {
+            continue;
+          }
           mutations.push(() => {
             // If the target is a list item, we need to adjust the list numbering in the original list
             if (target.tagName === "LI" && parent instanceof HTMLOListElement) {
@@ -190,6 +193,9 @@ function bodySegmenter(
             }
 
             target.remove();
+            if (parent instanceof HTMLTableElement && !parent.tBodies.length) {
+              parent.remove();
+            }
           });
         } else if (canBreakTarget) {
           const childSegment = bodySlice(
