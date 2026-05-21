@@ -151,12 +151,12 @@ export function PaginatedBreakInsideAvoid() {
             Level 2 Section with Avoid Break
             <section
               className="my-4 p-3 border border-blue-300 rounded"
-              style={{ pageBreakInside: "avoid" as const }}
+              // style={{ pageBreakInside: "avoid" as const }}
             >
               Level 1 Section with Avoid Break
               <section
                 className="my-4 p-3 border border-blue-300 rounded"
-                style={{ pageBreakInside: "avoid" as const }}
+                // style={{ pageBreakInside: "avoid" as const }}
               >
                 <h2>Legacy page-break-inside: avoid</h2>
                 <Paragraphs count={10} />

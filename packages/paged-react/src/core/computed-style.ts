@@ -5,10 +5,10 @@ export type CachedBoxStyle = {
 };
 
 export function createComputedStyleCache() {
-  const styles = new WeakMap<HTMLElement, CachedBoxStyle>();
+  const styles = new WeakMap<Element, CachedBoxStyle>();
 
   return {
-    get(element: HTMLElement) {
+    get(element: Element) {
       const cachedStyle = styles.get(element);
 
       if (cachedStyle) {

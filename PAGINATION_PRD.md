@@ -15,6 +15,7 @@
 - [x] Font/image readiness before layout.
 - [ ] CSS break detection: `break-before`, `break-after`, `page-break-before`, `page-break-after`.
 - [x] `break-inside: avoid` / `page-break-inside: avoid` recognition.
+- [x] Atomic element break protection.
 - [x] Generated debug attributes: page number, segment index, oversized marker.
 
 ## Phase 2 - Next

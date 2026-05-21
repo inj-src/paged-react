@@ -1,4 +1,5 @@
 import { textBreaker } from "./text-break.js";
+import { canBreakElement } from "./avoid-break.js";
 import { createComputedStyleCache } from "./computed-style.js";
 import { connectedClone } from "./utils.js";
 import {
@@ -148,7 +149,7 @@ function bodySegmenter(
       parentStyle.paddingBottom + parentStyle.borderBottomWidth + parentStyle.marginBottom;
 
     for (const target of Array.from(parent.childNodes)) {
-      if (target instanceof HTMLElement) {
+      if (target instanceof Element) {
         if (target.hasAttribute("data-paged-react-page-break")) {
           mutations.push(() => target.remove());
           return { segment, stopped: true };
@@ -166,12 +167,13 @@ function bodySegmenter(
           // to get the relative position
           bodyRect.top;
 
-        const hasNestedPageBreak =
-          target.querySelector("[data-paged-react-page-break]") !== null;
+        const hasNestedPageBreak = target.querySelector("[data-paged-react-page-break]") !== null;
+        const canBreakTarget = canBreakElement(target);
 
         if (targetBottom <= maxBodyHeight && !hasNestedPageBreak) {
           segment.appendChild(target.cloneNode(true));
           mutations.push(() => {
+            // If the target is a list item, we need to adjust the list numbering in the original list
             if (target.tagName === "LI" && parent instanceof HTMLOListElement) {
               if (parent.reversed) {
                 parent.start -= 1;
@@ -182,9 +184,9 @@ function bodySegmenter(
 
             target.remove();
           });
-        } else {
+        } else if (canBreakTarget) {
           const childSegment = bodySlice(
-            target,
+            target as HTMLElement,
             bodyRect,
             mutations,
             parentOffset + superParentOffset,
@@ -195,6 +197,13 @@ function bodySegmenter(
           if (childSegment.stopped) {
             return { segment, stopped: true };
           }
+        } else {
+          if (segment.childNodes.length) {
+            return { segment, stopped: true };
+          }
+
+          segment.appendChild(target.cloneNode(true));
+          mutations.push(() => target.remove());
         }
       }
 

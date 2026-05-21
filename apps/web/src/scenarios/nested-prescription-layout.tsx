@@ -45,7 +45,7 @@ export function NestedPrescriptionLayout() {
     },
   ];
 
-  const treatmentSteps = Array.from({ length: 5 }, (_, cycleIndex) =>
+  const treatmentSteps = Array.from({ length: 7 }, (_, cycleIndex) =>
     baseTreatmentSteps.map((step, stepIndex) => {
       const nextStep = {
         ...step,
