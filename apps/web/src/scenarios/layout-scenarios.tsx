@@ -119,6 +119,7 @@ export function PaginatedTableRows() {
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
+        repeatTableHeader
       >
         <Document.Header>
           <HeaderLine left="Revenue Ledger" right="Table Rows" />

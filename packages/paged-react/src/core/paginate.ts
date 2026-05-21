@@ -83,8 +83,10 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
       continue;
     }
 
+    const repeatTableHeader = segment.getAttribute("data-paged-react-repeat-table-header") === "true";
+
     console.time(`Segment ${segmentIndex + 1} pagination`);
-    const bodies = bodySegmenter(bodySlot, maxBodyHeight);
+    const bodies = bodySegmenter(bodySlot, maxBodyHeight, repeatTableHeader);
     console.timeEnd(`Segment ${segmentIndex + 1} pagination`);
 
     for (const [bodyIndex, bodySegment] of bodies.entries()) {
@@ -115,6 +117,7 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
 function bodySegmenter(
   body: HTMLElement | null,
   maxBodyHeight: number,
+  repeatTableHeader: boolean,
   bodySegments: HTMLElement[] = [],
 ) {
   if (!body) return bodySegments;
@@ -182,6 +185,9 @@ function bodySegmenter(
           if (parent instanceof HTMLTableElement && target.tagName === "THEAD") {
             continue;
           }
+          if (repeatTableHeader && parent instanceof HTMLTableSectionElement && parent.parentElement instanceof HTMLTableElement && !parent.parentElement.tHead && target === parent.rows[0]) {
+            continue;
+          }
           mutations.push(() => {
             // If the target is a list item, we need to adjust the list numbering in the original list
             if (target.tagName === "LI" && parent instanceof HTMLOListElement) {
@@ -193,8 +199,17 @@ function bodySegmenter(
             }
 
             target.remove();
-            if (parent instanceof HTMLTableElement && !parent.tBodies.length) {
-              parent.remove();
+            if (parent instanceof HTMLTableSectionElement) {
+              const table = parent.parentElement;
+              if (parent.rows.length === 0) {
+                parent.remove();
+              }
+              if (repeatTableHeader && table instanceof HTMLTableElement && !table.tHead && parent.rows.length === 1) {
+                parent.remove();
+              }
+              if (table instanceof HTMLTableElement && !table.tBodies.length) {
+                table.remove();
+              }
             }
           });
         } else if (canBreakTarget) {

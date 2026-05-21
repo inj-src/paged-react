@@ -17,13 +17,14 @@ type DocumentComponent = ReturnType<typeof forwardRef<HTMLDivElement, DocumentPr
 };
 
 export const DocumentSegment = forwardRef<HTMLDivElement, DocumentSegmentProps>(
-  function DocumentSegment({ children, pageSize, style, ...props }, ref) {
+  function DocumentSegment({ children, pageSize, repeatTableHeader, style, ...props }, ref) {
     const resolvedPageSize = resolvePageSize(pageSize);
 
     return (
       <div
         {...props}
         ref={ref}
+        data-paged-react-repeat-table-header={String(repeatTableHeader === true)}
         data-paged-react-page-height={resolvedPageSize.height}
         data-paged-react-page-width={resolvedPageSize.width}
         data-paged-react-segment=""
