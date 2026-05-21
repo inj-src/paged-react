@@ -174,6 +174,7 @@ export function RevenueTable() {
     <table className="my-4 w-full text-sm border-collapse">
       <thead>
         <tr className="bg-slate-100 border-slate-300 border-b text-left">
+          <th className="px-3 py-2 font-semibold">#</th>
           <th className="px-3 py-2 font-semibold">Channel</th>
           <th className="px-3 py-2 font-semibold">Revenue</th>
           <th className="px-3 py-2 font-semibold">Growth</th>
@@ -185,6 +186,7 @@ export function RevenueTable() {
             key={`${channel}-${index}`}
             className="border-slate-200 border-b align-top"
           >
+            <td className="px-3 py-2">{index + 1}</td>
             <td className="px-3 py-2">{channel}</td>
             <td className="px-3 py-2">{revenue}</td>
             <td className="px-3 py-2">{growth}</td>

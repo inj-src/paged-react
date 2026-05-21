@@ -11,15 +11,13 @@ import {
 export function PaginatedLongArticle() {
   return (
     <Document pruneSourceAfterPagination>
-      <Document.Segment
-        pageSize={pageSizes.A4}
-        className={[PAGE_MARGIN_CLASS].join(" ")}
-      >
+      <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Quarterly Report" right="Long Article" />
         </Document.Header>
         <Document.Body className="body sheet-body-typography">
           <h1>Long Article</h1>
+          <div className="bg-red-200 w-full h-212"></div>
           <Paragraphs count={30} />
         </Document.Body>
         <Document.Footer>
@@ -49,10 +47,7 @@ export function NaturalLongArticle() {
 export function PaginatedForcedBreaks() {
   return (
     <Document pruneSourceAfterPagination>
-      <Document.Segment
-        pageSize={pageSizes.A4}
-        className={[PAGE_MARGIN_CLASS].join(" ")}
-      >
+      <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Forced Breaks" />
         </Document.Header>
@@ -92,10 +87,7 @@ export function NaturalForcedBreaks() {
 export function PaginatedLegacyBreaks() {
   return (
     <Document pruneSourceAfterPagination>
-      <Document.Segment
-        pageSize={pageSizes.A4}
-        className={[PAGE_MARGIN_CLASS].join(" ")}
-      >
+      <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Legacy Break Properties" />
         </Document.Header>
@@ -145,10 +137,7 @@ export function NaturalLegacyBreaks() {
 export function PaginatedBreakInsideAvoid() {
   return (
     <Document pruneSourceAfterPagination>
-      <Document.Segment
-        pageSize={pageSizes.A4}
-        className={[PAGE_MARGIN_CLASS].join(" ")}
-      >
+      <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Break Inside Avoid" />
         </Document.Header>

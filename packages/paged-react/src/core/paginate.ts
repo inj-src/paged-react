@@ -1,3 +1,4 @@
+import { textBreaker } from "./text-break.js";
 import {
   cloneChildrenInto,
   createPage,
@@ -48,8 +49,20 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
       footerHeight = footerSlot.offsetHeight;
     }
 
+    const computedSegmentStyle = getComputedStyle(segment);
+    const segmentPaddingTop = parseFloat(computedSegmentStyle.paddingTop) || 0;
+    const segmentPaddingBottom = parseFloat(computedSegmentStyle.paddingBottom) || 0;
+    const segmentBorderBottom = parseFloat(computedSegmentStyle.borderBottomWidth) || 0;
+    const segmentBorderTop = parseFloat(computedSegmentStyle.borderTopWidth) || 0;
+
     const maxBodyHeight =
-      segmentPageSizePixels.height - headerHeight - footerHeight;
+      segmentPageSizePixels.height -
+      headerHeight -
+      footerHeight -
+      segmentPaddingTop -
+      segmentPaddingBottom -
+      segmentBorderBottom -
+      segmentBorderTop;
 
     if (maxBodyHeight <= 0) {
       console.warn(
@@ -74,10 +87,8 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
         footerSlot,
         pageNumber: segmentIndex + 1,
       });
-      page.page.setAttribute(
-        "data-paged-react-segment-index",
-        String(segmentIndex),
-      );
+
+      page.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
 
       cloneChildrenInto(page.header, headerSlot);
       cloneChildrenInto(page.footer, footerSlot);
@@ -103,14 +114,8 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
         pageNumber: segmentIndex + 1,
       });
 
-      page.page.setAttribute(
-        "data-paged-react-segment-index",
-        String(segmentIndex),
-      );
-      page.page.setAttribute(
-        "data-paged-react-body-segment-index",
-        String(bodyIndex),
-      );
+      page.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
+      page.page.setAttribute("data-paged-react-body-segment-index", String(bodyIndex));
 
       cloneChildrenInto(page.header, headerSlot);
       cloneChildrenInto(page.footer, footerSlot);
@@ -144,8 +149,10 @@ function bodySegmenter(
     for (const target of parent.childNodes) {
       if (target instanceof HTMLElement) {
         const targetRect = target.getBoundingClientRect();
+        const targetStyle = getComputedStyle(target);
+        const targetMarginBottom = parseFloat(targetStyle.marginBottom);
         const targetTop = targetRect.top - bodyRect.top;
-        const targetBottom = targetRect.bottom - bodyRect.top;
+        const targetBottom = targetRect.bottom - bodyRect.top + targetMarginBottom;
 
         if (targetBottom <= startOffset) {
           continue;
@@ -156,11 +163,6 @@ function bodySegmenter(
         }
 
         if (targetTop >= startOffset && targetBottom <= endOffset) {
-          segment.appendChild(target.cloneNode(true));
-          continue;
-        }
-
-        if (target.children.length === 0) {
           segment.appendChild(target.cloneNode(true));
           continue;
         }
@@ -176,11 +178,24 @@ function bodySegmenter(
         continue;
       }
 
-      if (target instanceof Text && target.textContent?.trim()) {
-        console.warn(
-          `Text node splitting is not implemented yet. Node content: "${target.textContent}"`,
-        );
-        break;
+      if (target instanceof Text) {
+        for (const line of textBreaker(target)) {
+          const targetTop = line.rect.top - bodyRect.top;
+          const targetBottom = line.rect.bottom - bodyRect.top;
+          // const lineMiddle = targetTop + (targetBottom - targetTop) / 2;
+
+          if (targetBottom <= startOffset) {
+            continue;
+          }
+
+          if (targetTop >= endOffset) {
+            break;
+          }
+
+          if (targetTop + line.rect.height >= startOffset && targetBottom <= endOffset) {
+            segment.append(line.text);
+          }
+        }
       }
     }
 
@@ -191,16 +206,8 @@ function bodySegmenter(
     return null;
   }
 
-  for (
-    let startOffset = 0;
-    startOffset < bodyHeight;
-    startOffset += maxBodyHeight
-  ) {
-    const segment = clonePageSlice(
-      body,
-      startOffset,
-      startOffset + maxBodyHeight,
-    );
+  for (let startOffset = 0; startOffset < bodyHeight; startOffset += maxBodyHeight) {
+    const segment = clonePageSlice(body, startOffset, startOffset + maxBodyHeight);
 
     if (segment) {
       bodySegments.push(segment);

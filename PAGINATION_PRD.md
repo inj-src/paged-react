@@ -29,7 +29,7 @@
 - [x] Table row-level splitting.
 - [x] Repeated table headers.
 - [ ] Long unbroken string handling.
-- [ ] Inline text splitting.
+- [x] Inline text splitting.
 - [ ] Deeply nested layout handling.
 
 ## Phase 4 - Scale
