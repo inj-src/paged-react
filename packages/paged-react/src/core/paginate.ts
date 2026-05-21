@@ -153,7 +153,7 @@ function bodySegmenter(
         const targetRect = target.getBoundingClientRect();
         const targetStyle = getComputedStyle(target);
         const targetMarginBottom = parseFloat(targetStyle.marginBottom);
-        // Will consider again should we include the margin bottom or not
+
         const targetBottom =
           targetRect.bottom +
           targetMarginBottom +
@@ -162,7 +162,7 @@ function bodySegmenter(
           // to get the relative position
           bodyRect.top;
 
-        const hasNestedPageBreak = target.querySelector("[data-paged-react-page-break]") !== null;
+        const hasNestedPageBreak = target.querySelector("[data-paged-react-page-break]");
 
         if (targetBottom <= maxBodyHeight && !hasNestedPageBreak) {
           segment.appendChild(target.cloneNode(true));
@@ -179,7 +179,7 @@ function bodySegmenter(
       }
 
       if (target instanceof Text) {
-        const lines = textBreaker(target);
+        const lines = textBreaker(target, parentOffset, bodyRect);
         const remaining = document.createDocumentFragment();
 
         for (const line of lines) {

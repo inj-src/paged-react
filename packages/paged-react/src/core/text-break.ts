@@ -1,4 +1,4 @@
-export function textBreaker(textNode: Text) {
+export function textBreaker(textNode: Text, parentOffset: number, bodyRect: DOMRect) {
   const text = textNode.textContent || "";
   if (!text) return [];
 

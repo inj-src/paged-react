@@ -169,12 +169,12 @@ export function NaturalBreakInsideAvoid() {
       body={
         <>
           <h1>Avoid Inside Break</h1>
-          <Paragraphs count={5} />
+          <Paragraphs count={8} />
           <section className="my-4 p-3 border border-blue-300 rounded">
             <h2>Legacy page-break-inside: avoid</h2>
             <Paragraphs count={10} />
           </section>
-          <Paragraphs count={5} />
+          <Paragraphs count={10} />
         </>
       }
     />

@@ -22,7 +22,7 @@ export function PaginatedMultiSegment() {
         </Document.Header>
         <Document.Body className="body sheet-body-typography">
           <h1>A4 Segment</h1>
-          <Paragraphs count={12} />
+          <Paragraphs count={30} />
         </Document.Body>
         <Document.Footer>
           <FooterLine content="A Footer" />
@@ -30,17 +30,14 @@ export function PaginatedMultiSegment() {
       </Document.Segment>
       <Document.Segment
         pageSize={pageSizes.Letter}
-        className={[
-          "bg-gradient-to-b from-white to-sky-50",
-          PAGE_MARGIN_CLASS,
-        ].join(" ")}
+        className={["bg-gradient-to-b from-white to-sky-50", PAGE_MARGIN_CLASS].join(" ")}
       >
         <Document.Header>
           <HeaderLine left="Segment B" />
         </Document.Header>
         <Document.Body className="body sheet-body-typography">
           <h1>Letter Segment</h1>
-          <Paragraphs count={14} />
+          <Paragraphs count={40} />
         </Document.Body>
         <Document.Footer>
           <FooterLine content="B Footer" />
@@ -59,7 +56,7 @@ export function NaturalMultiSegment() {
         body={
           <>
             <h1>A4 Segment</h1>
-            <Paragraphs count={12} />
+            <Paragraphs count={30} />
           </>
         }
       />
@@ -70,7 +67,7 @@ export function NaturalMultiSegment() {
         body={
           <>
             <h1>Letter Segment</h1>
-            <Paragraphs count={14} />
+            <Paragraphs count={40} />
           </>
         }
       />
@@ -130,8 +127,8 @@ export function PaginatedTableRows() {
         <Document.Body className="body sheet-body-typography">
           <h1>Table Rows Demo</h1>
           <p>
-            This scenario validates row-level table splitting with repeated
-            headers on generated pages.
+            This scenario validates row-level table splitting with repeated headers on generated
+            pages.
           </p>
           <RevenueTable />
           <Paragraphs count={5} />
@@ -154,8 +151,8 @@ export function NaturalTableRows() {
         <>
           <h1>Table Rows Demo</h1>
           <p>
-            This scenario validates row-level table splitting with repeated
-            headers on generated pages.
+            This scenario validates row-level table splitting with repeated headers on generated
+            pages.
           </p>
           <RevenueTable />
           <Paragraphs count={5} />
@@ -178,8 +175,8 @@ export function PaginatedNestedLayout() {
         <Document.Body className="body sheet-body-typography">
           <h1>Nested Layout Demo</h1>
           <p>
-            This scenario stresses nested flex, list, and grid content that must
-            continue inside the same section across pages.
+            This scenario stresses nested flex, list, and grid content that must continue inside the
+            same section across pages.
           </p>
           <NestedPrescriptionLayout />
         </Document.Body>
@@ -201,8 +198,8 @@ export function NaturalNestedLayout() {
         <>
           <h1>Nested Layout Demo</h1>
           <p>
-            This scenario stresses nested flex, list, and grid content that must
-            continue inside the same section across pages.
+            This scenario stresses nested flex, list, and grid content that must continue inside the
+            same section across pages.
           </p>
           <NestedPrescriptionLayout />
         </>
