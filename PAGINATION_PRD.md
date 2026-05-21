@@ -13,7 +13,7 @@
 - [x] Block-first body overflow pagination loop.
 - [x] Oversized element fallback behavior.
 - [x] Font/image readiness before layout.
-- [x] CSS break detection: `break-before`, `break-after`, `page-break-before`, `page-break-after`.
+- [ ] CSS break detection: `break-before`, `break-after`, `page-break-before`, `page-break-after`.
 - [x] `break-inside: avoid` / `page-break-inside: avoid` recognition.
 - [x] Generated debug attributes: page number, segment index, oversized marker.
 
@@ -21,7 +21,7 @@
 
 - [x] Automated package tests for pagination behavior.
 - [x] Stable styling hook documentation.
-- [x] Conflict resolution docs for `PageBreak` vs CSS break rules.
+- [ ] Conflict resolution docs for `PageBreak` vs CSS break rules.
 - [x] Mixed image/text scenario.
 
 ## Phase 3 - Later

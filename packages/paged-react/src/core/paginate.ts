@@ -1,4 +1,5 @@
 import { textBreaker } from "./text-break.js";
+import { splitBodyOnPageBreakMarkers } from "./page-break.js";
 import {
   cloneChildrenInto,
   createPage,
@@ -71,118 +72,78 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
       continue;
     }
 
-    let bodyHeight = 0;
+    const bodySlices = splitBodyOnPageBreakMarkers(bodySlot);
 
-    if (bodySlot) {
-      bodyHeight = bodySlot.offsetHeight;
-    }
+    for (const bodySlice of bodySlices) {
+      const bodies = bodySegmenter(bodySlice, maxBodyHeight);
 
-    if (maxBodyHeight >= bodyHeight) {
-      const page = createPage({
-        segment,
-        pagesRoot,
-        pageSize: segmentPageSize,
-        bodySlot,
-        headerSlot,
-        footerSlot,
-        pageNumber: segmentIndex + 1,
-      });
+      for (const [bodyIndex, bodySegment] of bodies.entries()) {
+        if (signal?.aborted) {
+          return;
+        }
 
-      page.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
+        const page = createPage({
+          segment,
+          pagesRoot,
+          pageSize: segmentPageSize,
+          bodySlot,
+          headerSlot,
+          footerSlot,
+          pageNumber: segmentIndex + 1,
+        });
 
-      cloneChildrenInto(page.header, headerSlot);
-      cloneChildrenInto(page.footer, footerSlot);
+        page.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
+        page.page.setAttribute("data-paged-react-body-segment-index", String(bodyIndex));
 
-      cloneChildrenInto(page.body, bodySlot);
-      continue;
-    }
-
-    const bodies = bodySegmenter(bodySlot, maxBodyHeight);
-
-    for (const [bodyIndex, bodySegment] of bodies.entries()) {
-      if (signal?.aborted) {
-        return;
+        cloneChildrenInto(page.header, headerSlot);
+        cloneChildrenInto(page.footer, footerSlot);
+        cloneChildrenInto(page.body, bodySegment);
       }
-
-      const page = createPage({
-        segment,
-        pagesRoot,
-        pageSize: segmentPageSize,
-        bodySlot,
-        headerSlot,
-        footerSlot,
-        pageNumber: segmentIndex + 1,
-      });
-
-      page.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
-      page.page.setAttribute("data-paged-react-body-segment-index", String(bodyIndex));
-
-      cloneChildrenInto(page.header, headerSlot);
-      cloneChildrenInto(page.footer, footerSlot);
-      cloneChildrenInto(page.body, bodySegment);
     }
   }
-}
 
-function bodySegmenter(
-  body: HTMLElement | null,
-  maxBodyHeight: number,
-  bodySegments: HTMLElement[] = [],
-) {
-  if (!body) return bodySegments;
+  function bodySegmenter(
+    body: HTMLElement | null,
+    maxBodyHeight: number,
+    bodySegments: HTMLElement[] = [],
+  ) {
+    if (!body) return bodySegments;
 
-  const bodyRect = body.getBoundingClientRect();
-  const bodyHeight = bodyRect.height;
+    let measuredBody = body;
 
-  if (bodyHeight <= maxBodyHeight) {
-    bodySegments.push(body.cloneNode(true) as HTMLElement);
-    return bodySegments;
-  }
+    if (!body.isConnected) {
+      measuredBody = body.cloneNode(true) as HTMLElement;
+      measuredBody.style.left = "-100000px";
+      measuredBody.style.position = "absolute";
+      measuredBody.style.top = "0";
+      document.body.appendChild(measuredBody);
+    }
 
-  function clonePageSlice(
-    parent: HTMLElement,
-    startOffset: number,
-    endOffset: number,
-  ): HTMLElement | null {
-    const segment = parent.cloneNode(false) as HTMLElement;
+    const bodyRect = measuredBody.getBoundingClientRect();
+    const bodyHeight = bodyRect.height;
 
-    for (const target of parent.childNodes) {
-      if (target instanceof HTMLElement) {
-        const targetRect = target.getBoundingClientRect();
-        const targetStyle = getComputedStyle(target);
-        const targetMarginBottom = parseFloat(targetStyle.marginBottom);
-        const targetTop = targetRect.top - bodyRect.top;
-        const targetBottom = targetRect.bottom - bodyRect.top + targetMarginBottom;
-
-        if (targetBottom <= startOffset) {
-          continue;
-        }
-
-        if (targetTop >= endOffset) {
-          break;
-        }
-
-        if (targetTop >= startOffset && targetBottom <= endOffset) {
-          segment.appendChild(target.cloneNode(true));
-          continue;
-        }
-
-        const childSegment = clonePageSlice(target, startOffset, endOffset);
-
-        if (childSegment?.childNodes.length) {
-          segment.appendChild(childSegment);
-          continue;
-        }
-
-        segment.appendChild(target.cloneNode(false));
-        continue;
+    if (bodyHeight <= maxBodyHeight) {
+      bodySegments.push(measuredBody.cloneNode(true) as HTMLElement);
+      if (measuredBody !== body) {
+        measuredBody.remove();
       }
+      return bodySegments;
+    }
 
-      if (target instanceof Text) {
-        for (const line of textBreaker(target)) {
-          const targetTop = line.rect.top - bodyRect.top;
-          const targetBottom = line.rect.bottom - bodyRect.top;
-          // const lineMiddle = targetTop + (targetBottom - targetTop) / 2;
+    function clonePageSlice(
+      parent: HTMLElement,
+      startOffset: number,
+      endOffset: number,
+    ): HTMLElement | null {
+      const segment = parent.cloneNode(false) as HTMLElement;
+
+      for (const target of parent.childNodes) {
+        if (target instanceof HTMLElement) {
+          const targetRect = target.getBoundingClientRect();
+          const targetStyle = getComputedStyle(target);
+          const targetMarginBottom = parseFloat(targetStyle.marginBottom);
+          const targetTop = targetRect.top - bodyRect.top;
+          const targetBottom = targetRect.bottom - bodyRect.top + targetMarginBottom;
 
           if (targetBottom <= startOffset) {
             continue;
@@ -192,27 +153,62 @@ function bodySegmenter(
             break;
           }
 
-          if (targetTop + line.rect.height >= startOffset && targetBottom <= endOffset) {
-            segment.append(line.text);
+          if (targetTop >= startOffset && targetBottom <= endOffset) {
+            segment.appendChild(target.cloneNode(true));
+            continue;
+          }
+
+          const childSegment = clonePageSlice(target, startOffset, endOffset);
+
+          if (childSegment?.childNodes.length) {
+            segment.appendChild(childSegment);
+            continue;
+          }
+
+          segment.appendChild(target.cloneNode(false));
+          continue;
+        }
+
+        if (target instanceof Text) {
+          for (const line of textBreaker(target)) {
+            const targetTop = line.rect.top - bodyRect.top;
+            const targetBottom = line.rect.bottom - bodyRect.top;
+            // const lineMiddle = targetTop + (targetBottom - targetTop) / 2;
+
+            if (targetBottom <= startOffset) {
+              continue;
+            }
+
+            if (targetTop >= endOffset) {
+              break;
+            }
+
+            if (targetTop + line.rect.height >= startOffset && targetBottom <= endOffset) {
+              segment.append(line.text);
+            }
           }
         }
       }
+
+      if (segment.childNodes.length) {
+        return segment;
+      }
+
+      return null;
     }
 
-    if (segment.childNodes.length) {
-      return segment;
+    for (let startOffset = 0; startOffset < bodyHeight; startOffset += maxBodyHeight) {
+      const segment = clonePageSlice(measuredBody, startOffset, startOffset + maxBodyHeight);
+
+      if (segment) {
+        bodySegments.push(segment);
+      }
     }
 
-    return null;
+    if (measuredBody !== body) {
+      measuredBody.remove();
+    }
+
+    return bodySegments;
   }
-
-  for (let startOffset = 0; startOffset < bodyHeight; startOffset += maxBodyHeight) {
-    const segment = clonePageSlice(body, startOffset, startOffset + maxBodyHeight);
-
-    if (segment) {
-      bodySegments.push(segment);
-    }
-  }
-
-  return bodySegments;
 }

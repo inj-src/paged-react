@@ -30,14 +30,14 @@
 
 ## Phase 2 - Breaks And Stuff
 
-- [ ] Support explicit `data-paged-react-page-break`.
+- [x] Support explicit `data-paged-react-page-break`.
 - [ ] Support `break-before`.
 - [ ] Support legacy `page-break-before`.
 - [ ] Support `break-after`.
 - [ ] Support legacy `page-break-after`.
 - [ ] Support `break-inside: avoid`.
 - [ ] Support legacy `page-break-inside: avoid`.
-- [ ] Treat explicit `PageBreak` markers as hard breaks.
+- [x] Treat explicit `PageBreak` markers as hard breaks.
 - [ ] Move an overflowing keep-together block to the next page when current page has content.
 - [ ] Keep an overflowing keep-together block on an empty page.
 - [ ] Mark oversized pages with `data-paged-react-oversized`.
