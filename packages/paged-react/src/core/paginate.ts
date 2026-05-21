@@ -230,6 +230,7 @@ function bodySegmenter(
             return { segment, stopped: true };
           }
 
+          console.error("Paged React: unbreakable element exceeds one page and will be clipped.", target);
           segment.appendChild(target.cloneNode(true));
           mutations.push(() => target.remove());
         }
