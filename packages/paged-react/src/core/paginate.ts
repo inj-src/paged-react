@@ -1,6 +1,7 @@
 import { textBreaker } from "./text-break.js";
 import { canBreakElement } from "./avoid-break.js";
 import { createComputedStyleCache } from "./computed-style.js";
+import { waitForLayoutReady } from "./layout-ready.js";
 import { connectedClone } from "./utils.js";
 import {
   cloneChildrenInto,
@@ -18,6 +19,12 @@ type PaginationContext = {
 
 export async function paginateDocument(ctx: PaginationContext): Promise<void> {
   const { sourceRoot, pagesRoot, signal } = ctx;
+
+  if (signal?.aborted) {
+    return;
+  }
+
+  await waitForLayoutReady(sourceRoot);
 
   if (signal?.aborted) {
     return;
