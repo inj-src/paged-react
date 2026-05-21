@@ -1,4 +1,5 @@
 import { textBreaker } from "./text-break.js";
+import { createComputedStyleCache } from "./computed-style.js";
 import { connectedClone } from "./utils.js";
 import {
   cloneChildrenInto,
@@ -110,6 +111,8 @@ function bodySegmenter(
 ) {
   if (!body) return bodySegments;
 
+  const styleCache = createComputedStyleCache();
+
   while (true) {
     const bodyRect = body.getBoundingClientRect();
     const bodyHeight = bodyRect.height;
@@ -124,6 +127,10 @@ function bodySegmenter(
     const pageSlice = bodySlice(body, bodyRect, mutations);
     bodySegments.push(pageSlice.segment);
 
+    if (!mutations.length) {
+      return bodySegments;
+    }
+
     for (const mutation of mutations) {
       mutation();
     }
@@ -133,15 +140,12 @@ function bodySegmenter(
     parent: HTMLElement,
     bodyRect: DOMRect,
     mutations: Array<() => void>,
+    superParentOffset = 0,
   ): { segment: HTMLElement; stopped: boolean } {
     const segment = parent.cloneNode(false) as HTMLElement;
-    const parentStyle = getComputedStyle(parent);
-    const parentPaddingBottom = parseFloat(parentStyle.paddingBottom) || 0;
-    const parentBorderBottom = parseFloat(parentStyle.borderBottomWidth) || 0;
-    const parentMarginTop = parseFloat(parentStyle.marginTop) || 0;
-    const parentMarginBottom = parseFloat(parentStyle.marginBottom) || 0;
+    const parentStyle = styleCache.get(parent);
     const parentOffset =
-      parentPaddingBottom + parentBorderBottom + parentMarginTop + parentMarginBottom;
+      parentStyle.paddingBottom + parentStyle.borderBottomWidth + parentStyle.marginBottom;
 
     for (const target of Array.from(parent.childNodes)) {
       if (target instanceof HTMLElement) {
@@ -151,24 +155,30 @@ function bodySegmenter(
         }
 
         const targetRect = target.getBoundingClientRect();
-        const targetStyle = getComputedStyle(target);
-        const targetMarginBottom = parseFloat(targetStyle.marginBottom);
+        const targetStyle = styleCache.get(target);
 
         const targetBottom =
           targetRect.bottom +
-          targetMarginBottom +
+          targetStyle.marginBottom +
+          superParentOffset +
           // We need to consider the parent offset
           parentOffset -
           // to get the relative position
           bodyRect.top;
 
-        const hasNestedPageBreak = target.querySelector("[data-paged-react-page-break]");
+        const hasNestedPageBreak =
+          target.querySelector("[data-paged-react-page-break]") !== null;
 
         if (targetBottom <= maxBodyHeight && !hasNestedPageBreak) {
           segment.appendChild(target.cloneNode(true));
           mutations.push(() => target.remove());
         } else {
-          const childSegment = bodySlice(target, bodyRect, mutations);
+          const childSegment = bodySlice(
+            target,
+            bodyRect,
+            mutations,
+            parentOffset + superParentOffset,
+          );
           if (childSegment.segment.childNodes.length) {
             segment.appendChild(childSegment.segment);
           }
@@ -179,11 +189,46 @@ function bodySegmenter(
       }
 
       if (target instanceof Text) {
-        const lines = textBreaker(target, parentOffset, bodyRect);
+        const textRange = document.createRange();
+        textRange.selectNode(target);
+        const textRects = Array.from(textRange.getClientRects());
+
+        if (!textRects.length) {
+          mutations.push(() => target.remove());
+          continue;
+        }
+
+        let textTop = Infinity;
+        let textBottom = -Infinity;
+
+        for (const rect of textRects) {
+          const rectTop = rect.top + parentOffset + superParentOffset - bodyRect.top;
+          const rectBottom = rect.bottom + parentOffset + superParentOffset - bodyRect.top;
+
+          if (rectTop < textTop) {
+            textTop = rectTop;
+          }
+
+          if (rectBottom > textBottom) {
+            textBottom = rectBottom;
+          }
+        }
+
+        if (textBottom <= maxBodyHeight) {
+          segment.append(target.data);
+          mutations.push(() => target.remove());
+          continue;
+        }
+
+        if (textTop > maxBodyHeight) {
+          continue;
+        }
+
+        const lines = textBreaker(target, textRects);
         const remaining = document.createDocumentFragment();
 
         for (const line of lines) {
-          const lineBottom = line.rect.bottom + parentOffset - bodyRect.top;
+          const lineBottom = line.rect.bottom + parentOffset + superParentOffset - bodyRect.top;
 
           if (lineBottom <= maxBodyHeight) {
             segment.append(line.text);

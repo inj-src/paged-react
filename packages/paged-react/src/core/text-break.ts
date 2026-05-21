@@ -1,37 +1,71 @@
-export function textBreaker(textNode: Text, parentOffset: number, bodyRect: DOMRect) {
+export function textBreaker(textNode: Text, lineRects: DOMRect[]) {
   const text = textNode.textContent || "";
   if (!text) return [];
 
-  const nodeRange = document.createRange();
-  nodeRange.selectNode(textNode);
-  const lineRects = Array.from(nodeRange.getClientRects());
+  const rectCache = new Map<number, DOMRect>();
+  const rectAt = (index: number) => {
+    const cachedRect = rectCache.get(index);
 
-  // 1. Calculate character positions exactly ONCE (O(N) instead of O(N*M))
-  const charData: Array<{ char: string; rect: DOMRect }> = [];
-  for (let i = 0; i < text.length; i++) {
+    if (cachedRect) {
+      return cachedRect;
+    }
+
     const charRange = document.createRange();
-    charRange.setStart(textNode, i);
-    charRange.setEnd(textNode, i + 1);
-    charData.push({
-      char: text[i]!,
-      rect: charRange.getBoundingClientRect(),
-    });
-  }
+    charRange.setStart(textNode, index);
+    charRange.setEnd(textNode, index + 1);
 
-  // 2. Map the characters to the pre-calculated lines
-  return lineRects.map((lineRect) => {
-    let textSplice = "";
+    const rect = charRange.getBoundingClientRect();
+    rectCache.set(index, rect);
+    return rect;
+  };
 
-    for (const { char, rect } of charData) {
-      // Use a 2px tolerance for subpixel rendering discrepancies
-      if (Math.abs(rect.top - lineRect.top) < 2) {
-        textSplice += char;
+  const firstIndexOnLine = (lineRect: DOMRect) => {
+    let low = 0;
+    let high = text.length - 1;
+    let result = text.length;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const rect = rectAt(mid);
+
+      if (rect.bottom >= lineRect.top) {
+        result = mid;
+        high = mid - 1;
+      } else {
+        low = mid + 1;
       }
     }
 
+    return result;
+  };
+
+  const firstIndexAfterLine = (lineRect: DOMRect, startIndex: number) => {
+    let low = startIndex;
+    let high = text.length - 1;
+    let result = text.length;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const rect = rectAt(mid);
+
+      if (rect.top > lineRect.bottom) {
+        result = mid;
+        high = mid - 1;
+      } else {
+        low = mid + 1;
+      }
+    }
+
+    return result;
+  };
+
+  return lineRects.map((lineRect) => {
+    const start = firstIndexOnLine(lineRect);
+    const end = firstIndexAfterLine(lineRect, start);
+
     return {
       rect: lineRect,
-      text: textSplice,
+      text: text.slice(start, end),
     };
   });
 }
