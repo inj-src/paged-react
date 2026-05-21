@@ -171,7 +171,17 @@ function bodySegmenter(
 
         if (targetBottom <= maxBodyHeight && !hasNestedPageBreak) {
           segment.appendChild(target.cloneNode(true));
-          mutations.push(() => target.remove());
+          mutations.push(() => {
+            if (target.tagName === "LI" && parent instanceof HTMLOListElement) {
+              if (parent.reversed) {
+                parent.start -= 1;
+              } else {
+                parent.start += 1;
+              }
+            }
+
+            target.remove();
+          });
         } else {
           const childSegment = bodySlice(
             target,

@@ -1,5 +1,5 @@
 export function textBreaker(textNode: Text, lineRects: DOMRect[]) {
-  const text = textNode.textContent || "";
+  const text = textNode.textContent;
   if (!text) return [];
 
   const rectCache = new Map<number, DOMRect>();
@@ -20,6 +20,7 @@ export function textBreaker(textNode: Text, lineRects: DOMRect[]) {
   };
 
   const firstIndexOnLine = (lineRect: DOMRect) => {
+    const lineMiddle = (lineRect.top + lineRect.bottom) / 2;
     let low = 0;
     let high = text.length - 1;
     let result = text.length;
@@ -27,8 +28,9 @@ export function textBreaker(textNode: Text, lineRects: DOMRect[]) {
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
       const rect = rectAt(mid);
+      const rectMiddle = (rect.top + rect.bottom) / 2;
 
-      if (rect.bottom >= lineRect.top) {
+      if (rectMiddle >= lineMiddle) {
         result = mid;
         high = mid - 1;
       } else {
@@ -40,6 +42,7 @@ export function textBreaker(textNode: Text, lineRects: DOMRect[]) {
   };
 
   const firstIndexAfterLine = (lineRect: DOMRect, startIndex: number) => {
+    const lineMiddle = (lineRect.top + lineRect.bottom) / 2;
     let low = startIndex;
     let high = text.length - 1;
     let result = text.length;
@@ -47,8 +50,9 @@ export function textBreaker(textNode: Text, lineRects: DOMRect[]) {
     while (low <= high) {
       const mid = Math.floor((low + high) / 2);
       const rect = rectAt(mid);
+      const rectMiddle = (rect.top + rect.bottom) / 2;
 
-      if (rect.top > lineRect.bottom) {
+      if (rectMiddle > lineMiddle) {
         result = mid;
         high = mid - 1;
       } else {
