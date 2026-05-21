@@ -1,5 +1,5 @@
 import { textBreaker } from "./text-break.js";
-import { splitBodyOnPageBreakMarkers } from "./page-break.js";
+import { connectedClone } from "./utils.js";
 import {
   cloneChildrenInto,
   createPage,
@@ -21,10 +21,12 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
     return;
   }
 
+  const sourceRootClone = connectedClone(sourceRoot);
+
   pagesRoot.textContent = "";
 
   const segments = Array.from(
-    sourceRoot.querySelectorAll(":scope > [data-paged-react-segment]"),
+    sourceRootClone.querySelectorAll(":scope > [data-paged-react-segment]"),
   ) as HTMLDivElement[];
 
   for (const [segmentIndex, segment] of segments.entries()) {
@@ -72,143 +74,128 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
       continue;
     }
 
-    const bodySlices = splitBodyOnPageBreakMarkers(bodySlot);
+    console.time(`Segment ${segmentIndex + 1} pagination`);
+    const bodies = bodySegmenter(bodySlot, maxBodyHeight);
+    console.timeEnd(`Segment ${segmentIndex + 1} pagination`);
 
-    for (const bodySlice of bodySlices) {
-      const bodies = bodySegmenter(bodySlice, maxBodyHeight);
-
-      for (const [bodyIndex, bodySegment] of bodies.entries()) {
-        if (signal?.aborted) {
-          return;
-        }
-
-        const page = createPage({
-          segment,
-          pagesRoot,
-          pageSize: segmentPageSize,
-          bodySlot,
-          headerSlot,
-          footerSlot,
-          pageNumber: segmentIndex + 1,
-        });
-
-        page.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
-        page.page.setAttribute("data-paged-react-body-segment-index", String(bodyIndex));
-
-        cloneChildrenInto(page.header, headerSlot);
-        cloneChildrenInto(page.footer, footerSlot);
-        cloneChildrenInto(page.body, bodySegment);
+    for (const [bodyIndex, bodySegment] of bodies.entries()) {
+      if (signal?.aborted) {
+        return;
       }
+
+      const page = createPage({
+        segment,
+        pagesRoot,
+        pageSize: segmentPageSize,
+        bodySlot,
+        headerSlot,
+        footerSlot,
+        pageNumber: segmentIndex + 1,
+      });
+
+      page.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
+      page.page.setAttribute("data-paged-react-body-segment-index", String(bodyIndex));
+
+      cloneChildrenInto(page.header, headerSlot);
+      cloneChildrenInto(page.footer, footerSlot);
+      cloneChildrenInto(page.body, bodySegment);
     }
   }
+}
 
-  function bodySegmenter(
-    body: HTMLElement | null,
-    maxBodyHeight: number,
-    bodySegments: HTMLElement[] = [],
-  ) {
-    if (!body) return bodySegments;
+function bodySegmenter(
+  body: HTMLElement | null,
+  maxBodyHeight: number,
+  bodySegments: HTMLElement[] = [],
+) {
+  if (!body) return bodySegments;
 
-    let measuredBody = body;
-
-    if (!body.isConnected) {
-      measuredBody = body.cloneNode(true) as HTMLElement;
-      measuredBody.style.left = "-100000px";
-      measuredBody.style.position = "absolute";
-      measuredBody.style.top = "0";
-      document.body.appendChild(measuredBody);
-    }
-
-    const bodyRect = measuredBody.getBoundingClientRect();
+  while (true) {
+    const bodyRect = body.getBoundingClientRect();
     const bodyHeight = bodyRect.height;
+    const hasPageBreak = body.querySelector("[data-paged-react-page-break]") !== null;
 
-    if (bodyHeight <= maxBodyHeight) {
-      bodySegments.push(measuredBody.cloneNode(true) as HTMLElement);
-      if (measuredBody !== body) {
-        measuredBody.remove();
-      }
+    if (bodyHeight <= maxBodyHeight && !hasPageBreak) {
+      bodySegments.push(body);
       return bodySegments;
     }
 
-    function clonePageSlice(
-      parent: HTMLElement,
-      startOffset: number,
-      endOffset: number,
-    ): HTMLElement | null {
-      const segment = parent.cloneNode(false) as HTMLElement;
+    const mutations: Array<() => void> = [];
+    const pageSlice = bodySlice(body, bodyRect, mutations);
+    bodySegments.push(pageSlice.segment);
 
-      for (const target of parent.childNodes) {
-        if (target instanceof HTMLElement) {
-          const targetRect = target.getBoundingClientRect();
-          const targetStyle = getComputedStyle(target);
-          const targetMarginBottom = parseFloat(targetStyle.marginBottom);
-          const targetTop = targetRect.top - bodyRect.top;
-          const targetBottom = targetRect.bottom - bodyRect.top + targetMarginBottom;
+    for (const mutation of mutations) {
+      mutation();
+    }
+  }
 
-          if (targetBottom <= startOffset) {
-            continue;
-          }
+  function bodySlice(
+    parent: HTMLElement,
+    bodyRect: DOMRect,
+    mutations: Array<() => void>,
+  ): { segment: HTMLElement; stopped: boolean } {
+    const segment = parent.cloneNode(false) as HTMLElement;
+    const parentStyle = getComputedStyle(parent);
+    const parentPaddingBottom = parseFloat(parentStyle.paddingBottom) || 0;
+    const parentBorderBottom = parseFloat(parentStyle.borderBottomWidth) || 0;
+    const parentMarginTop = parseFloat(parentStyle.marginTop) || 0;
+    const parentMarginBottom = parseFloat(parentStyle.marginBottom) || 0;
+    const parentOffset =
+      parentPaddingBottom + parentBorderBottom + parentMarginTop + parentMarginBottom;
 
-          if (targetTop >= endOffset) {
-            break;
-          }
-
-          if (targetTop >= startOffset && targetBottom <= endOffset) {
-            segment.appendChild(target.cloneNode(true));
-            continue;
-          }
-
-          const childSegment = clonePageSlice(target, startOffset, endOffset);
-
-          if (childSegment?.childNodes.length) {
-            segment.appendChild(childSegment);
-            continue;
-          }
-
-          segment.appendChild(target.cloneNode(false));
-          continue;
+    for (const target of Array.from(parent.childNodes)) {
+      if (target instanceof HTMLElement) {
+        if (target.hasAttribute("data-paged-react-page-break")) {
+          mutations.push(() => target.remove());
+          return { segment, stopped: true };
         }
 
-        if (target instanceof Text) {
-          for (const line of textBreaker(target)) {
-            const targetTop = line.rect.top - bodyRect.top;
-            const targetBottom = line.rect.bottom - bodyRect.top;
-            // const lineMiddle = targetTop + (targetBottom - targetTop) / 2;
+        const targetRect = target.getBoundingClientRect();
+        const targetStyle = getComputedStyle(target);
+        const targetMarginBottom = parseFloat(targetStyle.marginBottom);
+        // Will consider again should we include the margin bottom or not
+        const targetBottom =
+          targetRect.bottom +
+          targetMarginBottom +
+          // We need to consider the parent offset
+          parentOffset -
+          // to get the relative position
+          bodyRect.top;
 
-            if (targetBottom <= startOffset) {
-              continue;
-            }
+        const hasNestedPageBreak = target.querySelector("[data-paged-react-page-break]") !== null;
 
-            if (targetTop >= endOffset) {
-              break;
-            }
-
-            if (targetTop + line.rect.height >= startOffset && targetBottom <= endOffset) {
-              segment.append(line.text);
-            }
+        if (targetBottom <= maxBodyHeight && !hasNestedPageBreak) {
+          segment.appendChild(target.cloneNode(true));
+          mutations.push(() => target.remove());
+        } else {
+          const childSegment = bodySlice(target, bodyRect, mutations);
+          if (childSegment.segment.childNodes.length) {
+            segment.appendChild(childSegment.segment);
+          }
+          if (childSegment.stopped) {
+            return { segment, stopped: true };
           }
         }
       }
 
-      if (segment.childNodes.length) {
-        return segment;
+      if (target instanceof Text) {
+        const lines = textBreaker(target);
+        const remaining = document.createDocumentFragment();
+
+        for (const line of lines) {
+          const lineBottom = line.rect.bottom + parentOffset - bodyRect.top;
+
+          if (lineBottom <= maxBodyHeight) {
+            segment.append(line.text);
+          } else {
+            remaining.append(line.text);
+          }
+        }
+
+        mutations.push(() => target.replaceWith(remaining));
       }
-
-      return null;
     }
 
-    for (let startOffset = 0; startOffset < bodyHeight; startOffset += maxBodyHeight) {
-      const segment = clonePageSlice(measuredBody, startOffset, startOffset + maxBodyHeight);
-
-      if (segment) {
-        bodySegments.push(segment);
-      }
-    }
-
-    if (measuredBody !== body) {
-      measuredBody.remove();
-    }
-
-    return bodySegments;
+    return { segment, stopped: false };
   }
 }

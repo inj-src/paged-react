@@ -17,7 +17,7 @@ export function PaginatedLongArticle() {
         </Document.Header>
         <Document.Body className="body sheet-body-typography">
           <h1>Long Article</h1>
-          <div className="bg-red-200 w-full h-212"></div>
+          {/* <div className="bg-red-200 w-full h-212"></div> */}
           <Paragraphs count={30} />
         </Document.Body>
         <Document.Footer>

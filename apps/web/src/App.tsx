@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ComparisonPanel } from "./components/comparison-panel";
 import { ScenarioSelect } from "./components/scenario-select";
 import {
@@ -25,7 +25,15 @@ import type { ScenarioId } from "./scenarios/types";
 import "@repo/paged-react/styles.css";
 
 function App() {
-  const [scenario, setScenario] = useState<ScenarioId>("long-article");
+  const STORAGE_KEY = "paged-react:scenario";
+  const [scenario, setScenario] = useState<ScenarioId>(() => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return (raw as ScenarioId) || "long-article";
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, scenario);
+  }, [scenario]);
 
   const views = useMemo(() => {
     switch (scenario) {
@@ -79,9 +87,7 @@ function App() {
           <h1 className="m-0 mb-2 font-['Space_Grotesk','Avenir_Next',sans-serif] text-3xl leading-tight">
             Paged React Lab
           </h1>
-          <p className="m-0 text-slate-600">
-            Natural flow vs paginated flow comparison
-          </p>
+          <p className="m-0 text-slate-600">Natural flow vs paginated flow comparison</p>
         </div>
         <div className="flex max-md:flex-col flex-wrap items-end max-md:items-start gap-3">
           <ScenarioSelect scenario={scenario} onScenarioChange={setScenario} />
@@ -90,9 +96,7 @@ function App() {
 
       <section className="mt-5">
         <div className="flex max-md:flex-col gap-5">
-          <ComparisonPanel title="Natural Flow (direct DOM)">
-            {views.natural}
-          </ComparisonPanel>
+          <ComparisonPanel title="Natural Flow (direct DOM)">{views.natural}</ComparisonPanel>
           <ComparisonPanel title="Paginated Flow (package)" paginated>
             {views.paginated}
           </ComparisonPanel>

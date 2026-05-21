@@ -19,10 +19,7 @@ export function getDirectSlot(
 }
 
 /** Clones all child nodes from a source slot into a target element. */
-export function cloneChildrenInto(
-  target: HTMLElement,
-  source: HTMLElement | null,
-): void {
+export function cloneChildrenInto(target: HTMLElement, source: HTMLElement | null): void {
   if (!source) {
     return;
   }
@@ -116,4 +113,13 @@ export function createPage({
   pagesRoot.appendChild(page);
 
   return { page, header, body, footer };
+}
+
+export function connectedClone(element: HTMLElement) {
+  const clone = element.cloneNode(true) as HTMLElement;
+  clone.style.left = "-100000px";
+  clone.style.position = "absolute";
+  clone.style.top = "0";
+  document.body.appendChild(clone);
+  return clone;
 }
