@@ -16,16 +16,14 @@
 
 ## 2. Component API
 
-1. [ ] `packages/paged-react/src/components/document.tsx`
-2. [ ] Add `repeatTableHeader` support on `Document.Segment`.
-3. [ ] Respect `pruneSourceAfterPagination` by unmounting source content after pagination.
-4. [ ] Use typed page-size CSS variables.
+2. [*] Add `repeatTableHeader` support on `Document.Segment`.
+3. [ ] Respect `pruneSource` by unmounting source content after pagination.
 
-5. [ ] `packages/paged-react/src/types.ts`
-6. [ ] Add `StyleWithPageVars`.
+4. [ ] `packages/paged-react/src/types.ts`
+5. [ ] Add `StyleWithPageVars`.
 
-7. [ ] `packages/paged-react/src/utils/page-size.ts`
-8. [ ] Accept the typed page-size style shape.
+6. [ ] `packages/paged-react/src/utils/page-size.ts`
+7. [ ] Accept the typed page-size style shape.
 
 ## 3. Tests
 

@@ -28,24 +28,24 @@ export type PageSize = PageSizeName | PageSizeValue;
 export type SlotProps = ComponentPropsWithoutRef<"div">;
 
 export type DocumentProps = SlotProps & {
-  children?: ReactNode;
-  pruneSourceAfterPagination?: boolean;
+  children: ReactNode;
+  pruneSource?: boolean;
 };
 
 export type DocumentSegmentProps = SlotProps & {
-  children?: ReactNode;
+  children: ReactNode;
   pageSize: PageSize;
   repeatTableHeader?: boolean;
 };
 
 export type DocumentHeaderProps = SlotProps & {
-  children?: ReactNode;
+  children: ReactNode;
 };
 
 export type DocumentBodyProps = SlotProps & {
-  children?: ReactNode;
+  children: ReactNode;
 };
 
 export type DocumentFooterProps = SlotProps & {
-  children?: ReactNode;
+  children: ReactNode;
 };

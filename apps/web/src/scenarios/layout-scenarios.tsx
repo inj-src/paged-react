@@ -12,7 +12,7 @@ import {
 
 export function PaginatedMultiSegment() {
   return (
-    <Document pruneSourceAfterPagination>
+    <Document pruneSource>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -77,7 +77,7 @@ export function NaturalMultiSegment() {
 
 export function PaginatedMixedImageText() {
   return (
-    <Document pruneSourceAfterPagination>
+    <Document pruneSource>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -115,7 +115,7 @@ export function NaturalMixedImageText() {
 
 export function PaginatedTableRows() {
   return (
-    <Document pruneSourceAfterPagination>
+    <Document pruneSource>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -164,7 +164,7 @@ export function NaturalTableRows() {
 
 export function PaginatedNestedLayout() {
   return (
-    <Document pruneSourceAfterPagination>
+    <Document pruneSource>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}

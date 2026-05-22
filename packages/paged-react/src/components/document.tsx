@@ -28,7 +28,7 @@ export const DocumentSegment = forwardRef<HTMLDivElement, DocumentSegmentProps>(
         data-paged-react-repeat-table-header={String(repeatTableHeader === true)}
         data-paged-react-page-height={resolvedPageSize.height}
         data-paged-react-page-width={resolvedPageSize.width}
-        data-paged-react-segment=""
+        data-paged-react-segment-source=""
         style={{
           ...style,
           minHeight: resolvedPageSize.height,
@@ -44,7 +44,7 @@ export const DocumentSegment = forwardRef<HTMLDivElement, DocumentSegmentProps>(
 export const DocumentHeader = forwardRef<HTMLDivElement, DocumentHeaderProps>(
   function DocumentHeader({ children, ...props }, ref) {
     return (
-      <div {...props} ref={ref} data-paged-react-header="">
+      <div {...props} ref={ref} data-paged-react-header-source="">
         {children}
       </div>
     );
@@ -56,7 +56,7 @@ export const DocumentBody = forwardRef<HTMLDivElement, DocumentBodyProps>(functi
   ref,
 ) {
   return (
-    <div {...props} ref={ref} data-paged-react-body="">
+    <div {...props} ref={ref} data-paged-react-body-source="">
       {children}
     </div>
   );
@@ -65,7 +65,7 @@ export const DocumentBody = forwardRef<HTMLDivElement, DocumentBodyProps>(functi
 export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(
   function DocumentFooter({ children, ...props }, ref) {
     return (
-      <div {...props} ref={ref} data-paged-react-footer="">
+      <div {...props} ref={ref} data-paged-react-footer-source="">
         {children}
       </div>
     );
@@ -73,15 +73,12 @@ export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(
 );
 
 const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document(
-  { children, pruneSourceAfterPagination, ...props },
+  { children, pruneSource = true, ...props },
   ref,
 ) {
   const sourceRef = useRef<HTMLDivElement | null>(null);
   const pagesRef = useRef<HTMLDivElement | null>(null);
   const [pages, setPages] = useState<HTMLElement[] | null>(null);
-
-  // TODO: implement source pruning after pagination
-  void pruneSourceAfterPagination;
 
   const mergedRef = useMemo(() => {
     return (node: HTMLDivElement | null) => {
@@ -114,6 +111,7 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
       sourceRoot,
       pagesRoot,
       signal: abortController.signal,
+      pruneSource,
     }).then((generatedPages) => {
       if (abortController.signal.aborted) {
         return;
@@ -125,13 +123,13 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
     return () => {
       abortController.abort();
     };
-  }, [children]);
+  }, [children, pruneSource]);
 
   return (
     <context.Provider value={{ pages }}>
-      <div data-paged-react-document="" style={{ display: "contents" }}>
+      <div data-paged-react-document-source="" style={{ display: "contents" }}>
         <div
-          data-paged-react-source=""
+          data-paged-react-root-source=""
           ref={sourceRef}
           style={{
             left: "-100000px",

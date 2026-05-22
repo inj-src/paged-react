@@ -17,10 +17,11 @@ type PaginationContext = {
   sourceRoot: HTMLDivElement;
   pagesRoot: HTMLDivElement;
   signal?: AbortSignal;
+  pruneSource?: boolean;
 };
 
 export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElement[]> {
-  const { sourceRoot, pagesRoot, signal } = ctx;
+  const { sourceRoot, pagesRoot, signal, pruneSource } = ctx;
   const pages: HTMLElement[] = [];
 
   if (signal?.aborted) return pages;
@@ -31,10 +32,8 @@ export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElem
 
   const sourceRootClone = connectedClone(sourceRoot);
 
-  pagesRoot.textContent = "";
-
   const segments = Array.from(
-    sourceRootClone.querySelectorAll(":scope > [data-paged-react-segment]"),
+    sourceRootClone.querySelectorAll(":scope > [data-paged-react-segment-source]"),
   ) as HTMLDivElement[];
 
   for (const [segmentIndex, segment] of segments.entries()) {
@@ -68,7 +67,7 @@ export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElem
       segment.getAttribute("data-paged-react-repeat-table-header") === "true";
 
     console.time(`Segment ${segmentIndex + 1} pagination`);
-    const bodies = bodySegmenter(bodySlot, maxBodyHeight, repeatTableHeader);
+    const bodies = bodySegmenter({ body: bodySlot, maxBodyHeight, repeatTableHeader });
     console.timeEnd(`Segment ${segmentIndex + 1} pagination`);
 
     for (const [bodyIndex, bodySegment] of bodies.entries()) {
@@ -94,10 +93,19 @@ export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElem
     }
   }
 
+  sourceRootClone.remove();
+  if (pruneSource) sourceRoot.remove();
   return pages;
 }
 
-function bodySegmenter(body: HTMLElement | null, maxBodyHeight: number, repeatTableHeader: boolean, bodySegments: HTMLElement[] = []) {
+function bodySegmenter(ctx: {
+  body: HTMLElement | null;
+  maxBodyHeight: number;
+  repeatTableHeader: boolean;
+}) {
+  const { body, maxBodyHeight, repeatTableHeader } = ctx;
+  const bodySegments: HTMLElement[] = [];
+
   if (!body) return bodySegments;
 
   const styleCache = createComputedStyleCache();
@@ -125,7 +133,19 @@ function bodySegmenter(body: HTMLElement | null, maxBodyHeight: number, repeatTa
     }
   }
 
-  function bodySlice({ body, bodyRect, mutations, parent = body, superParentOffset = 0 }: { body: HTMLElement; bodyRect: DOMRect; mutations: Array<() => void>; parent?: HTMLElement; superParentOffset?: number }): { segment: HTMLElement; stopped: boolean } {
+  function bodySlice({
+    body,
+    bodyRect,
+    mutations,
+    parent = body,
+    superParentOffset = 0,
+  }: {
+    body: HTMLElement;
+    bodyRect: DOMRect;
+    mutations: Array<() => void>;
+    parent?: HTMLElement;
+    superParentOffset?: number;
+  }): { segment: HTMLElement; stopped: boolean } {
     const segment = parent.cloneNode(false) as HTMLElement;
     const parentStyle = styleCache.get(parent);
     const parentOffset =
@@ -274,7 +294,11 @@ function bodySegmenter(body: HTMLElement | null, maxBodyHeight: number, repeatTa
     return { segment, stopped: false };
   }
 
-  function cleanupPaginationTarget(target: Element, parent: HTMLElement, repeatTableHeader: boolean) {
+  function cleanupPaginationTarget(
+    target: Element,
+    parent: HTMLElement,
+    repeatTableHeader: boolean,
+  ) {
     if (target.tagName === "LI" && parent instanceof HTMLOListElement) {
       if (parent.reversed) parent.start -= 1;
       else parent.start += 1;
@@ -282,14 +306,23 @@ function bodySegmenter(body: HTMLElement | null, maxBodyHeight: number, repeatTa
 
     target.remove();
 
-    if (parent.children.length === 0 && parent.textContent !== null && parent.textContent.trim() === "") {
+    if (
+      parent.children.length === 0 &&
+      parent.textContent !== null &&
+      parent.textContent.trim() === ""
+    ) {
       parent.setAttribute(EMPTY_BY_PAGINATION_ATTRIBUTE, "");
     }
 
     if (parent instanceof HTMLTableSectionElement) {
       const table = parent.parentElement;
       if (parent.rows.length === 0) parent.remove();
-      if (repeatTableHeader && table instanceof HTMLTableElement && !table.tHead && parent.rows.length === 1) {
+      if (
+        repeatTableHeader &&
+        table instanceof HTMLTableElement &&
+        !table.tHead &&
+        parent.rows.length === 1
+      ) {
         parent.remove();
       }
       if (table instanceof HTMLTableElement && !table.tBodies.length) table.remove();

@@ -15,7 +15,7 @@ export function getDirectSlot(
   parent: Element,
   attribute: "header" | "body" | "footer",
 ): HTMLDivElement | null {
-  return parent.querySelector(`:scope > [data-paged-react-${attribute}]`);
+  return parent.querySelector(`:scope > [data-paged-react-${attribute}-source]`);
 }
 
 /** Clones all child nodes from a source slot into a target element. */
@@ -82,7 +82,7 @@ export function createPage({
   pageNumber: number;
 }): PageElements {
   const page = segment.cloneNode(false) as HTMLDivElement;
-  page.removeAttribute("data-paged-react-segment");
+  page.removeAttribute("data-paged-react-segment-source");
   page.setAttribute("data-paged-react-page", "");
   page.setAttribute("data-page-number", String(pageNumber));
   page.style.height = pageSize.height;
@@ -93,21 +93,21 @@ export function createPage({
     header = headerSlot.cloneNode(false) as HTMLDivElement;
   }
   header.setAttribute("data-paged-react-page-header", "");
-  header.removeAttribute("data-paged-react-header");
+  header.removeAttribute("data-paged-react-header-source");
 
   let body = document.createElement("div");
   if (bodySlot) {
     body = bodySlot.cloneNode(false) as HTMLDivElement;
   }
   body.setAttribute("data-paged-react-page-body", "");
-  body.removeAttribute("data-paged-react-body");
+  body.removeAttribute("data-paged-react-body-source");
 
   let footer = document.createElement("div");
   if (footerSlot) {
     footer = footerSlot.cloneNode(false) as HTMLDivElement;
   }
   footer.setAttribute("data-paged-react-page-footer", "");
-  footer.removeAttribute("data-paged-react-footer");
+  footer.removeAttribute("data-paged-react-footer-source");
 
   page.append(header, body, footer);
   pagesRoot.appendChild(page);

@@ -10,12 +10,8 @@ import "@repo/paged-react/styles.css";
 
 export function Report() {
   return (
-    <Document pruneSourceAfterPagination>
-      <Document.Segment
-        pageSize={pageSizes.A4}
-        className="p-[20mm]"
-        repeatTableHeader
-      >
+    <Document pruneSource>
+      <Document.Segment pageSize={pageSizes.A4} className="p-[20mm]" repeatTableHeader>
         <Document.Header>
           <header>Quarterly Report</header>
         </Document.Header>
@@ -37,7 +33,7 @@ export function Report() {
 
 Slots accept normal `div` props such as `className`, `style`, `id`, `data-*`, and `aria-*`.
 
-`Document` keeps its source tree hidden for pagination measurement. If your document is static after render, set `pruneSourceAfterPagination` to unmount the source tree after pagination completes.
+`Document` keeps its source tree hidden for pagination measurement. If your document is static after render, set `pruneSource` to unmount the source tree after pagination completes.
 
 `Document.Segment` requires `pageSize`, so each segment owns its generated page dimensions.
 
