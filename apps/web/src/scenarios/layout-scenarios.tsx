@@ -183,6 +183,11 @@ export function PaginatedNestedLayout() {
         <Document.Footer>
           <FooterLine content="Nested Layout Pagination" />
         </Document.Footer>
+        {/* <Watermark>
+          {({ pages, pageIndex }) => {
+            return `Page ${pageIndex + 1} of ${pages.length}`;
+          }}
+        </Watermark> */}
       </Document.Segment>
     </Document>
   );

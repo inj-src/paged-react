@@ -17,17 +17,18 @@ type PaginationContext = {
   signal?: AbortSignal;
 };
 
-export async function paginateDocument(ctx: PaginationContext): Promise<void> {
+export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElement[]> {
   const { sourceRoot, pagesRoot, signal } = ctx;
+  const pages: HTMLElement[] = [];
 
   if (signal?.aborted) {
-    return;
+    return pages;
   }
 
   await waitForLayoutReady(sourceRoot);
 
   if (signal?.aborted) {
-    return;
+    return pages;
   }
 
   const sourceRootClone = connectedClone(sourceRoot);
@@ -40,7 +41,7 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
 
   for (const [segmentIndex, segment] of segments.entries()) {
     if (signal?.aborted) {
-      return;
+      return pages;
     }
 
     const segmentPageSize = getEffectivePageSize(segment);
@@ -83,7 +84,8 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
       continue;
     }
 
-    const repeatTableHeader = segment.getAttribute("data-paged-react-repeat-table-header") === "true";
+    const repeatTableHeader =
+      segment.getAttribute("data-paged-react-repeat-table-header") === "true";
 
     console.time(`Segment ${segmentIndex + 1} pagination`);
     const bodies = bodySegmenter(bodySlot, maxBodyHeight, repeatTableHeader);
@@ -91,7 +93,7 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
 
     for (const [bodyIndex, bodySegment] of bodies.entries()) {
       if (signal?.aborted) {
-        return;
+        return pages;
       }
 
       const page = createPage({
@@ -110,8 +112,11 @@ export async function paginateDocument(ctx: PaginationContext): Promise<void> {
       cloneChildrenInto(page.header, headerSlot);
       cloneChildrenInto(page.footer, footerSlot);
       cloneChildrenInto(page.body, bodySegment);
+      pages.push(page.page);
     }
   }
+
+  return pages;
 }
 
 function bodySegmenter(
@@ -185,7 +190,13 @@ function bodySegmenter(
           if (parent instanceof HTMLTableElement && target.tagName === "THEAD") {
             continue;
           }
-          if (repeatTableHeader && parent instanceof HTMLTableSectionElement && parent.parentElement instanceof HTMLTableElement && !parent.parentElement.tHead && target === parent.rows[0]) {
+          if (
+            repeatTableHeader &&
+            parent instanceof HTMLTableSectionElement &&
+            parent.parentElement instanceof HTMLTableElement &&
+            !parent.parentElement.tHead &&
+            target === parent.rows[0]
+          ) {
             continue;
           }
           mutations.push(() => {
@@ -204,7 +215,12 @@ function bodySegmenter(
               if (parent.rows.length === 0) {
                 parent.remove();
               }
-              if (repeatTableHeader && table instanceof HTMLTableElement && !table.tHead && parent.rows.length === 1) {
+              if (
+                repeatTableHeader &&
+                table instanceof HTMLTableElement &&
+                !table.tHead &&
+                parent.rows.length === 1
+              ) {
                 parent.remove();
               }
               if (table instanceof HTMLTableElement && !table.tBodies.length) {
@@ -230,7 +246,10 @@ function bodySegmenter(
             return { segment, stopped: true };
           }
 
-          console.error("Paged React: unbreakable element exceeds one page and will be clipped.", target);
+          console.error(
+            "Paged React: unbreakable element exceeds one page and will be clipped.",
+            target,
+          );
           segment.appendChild(target.cloneNode(true));
           mutations.push(() => target.remove());
         }

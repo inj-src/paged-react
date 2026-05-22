@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useMemo, useRef } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { paginateDocument } from "../core/paginate.js";
 import { resolvePageSize } from "../utils/page-size.js";
 import type {
@@ -8,6 +8,7 @@ import type {
   DocumentProps,
   DocumentSegmentProps,
 } from "../types.js";
+import { context } from "./context.js";
 
 type DocumentComponent = ReturnType<typeof forwardRef<HTMLDivElement, DocumentProps>> & {
   Segment: typeof DocumentSegment;
@@ -77,6 +78,7 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
 ) {
   const sourceRef = useRef<HTMLDivElement | null>(null);
   const pagesRef = useRef<HTMLDivElement | null>(null);
+  const [pages, setPages] = useState<HTMLElement[] | null>(null);
 
   // TODO: implement source pruning after pagination
   void pruneSourceAfterPagination;
@@ -106,10 +108,18 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
 
     const abortController = new AbortController();
 
+    setPages(null);
+
     void paginateDocument({
       sourceRoot,
       pagesRoot,
       signal: abortController.signal,
+    }).then((generatedPages) => {
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      setPages(generatedPages);
     });
 
     return () => {
@@ -118,22 +128,24 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
   }, [children]);
 
   return (
-    <div data-paged-react-document="" style={{ display: "contents" }}>
-      <div
-        data-paged-react-source=""
-        ref={sourceRef}
-        style={{
-          left: "-100000px",
-          pointerEvents: "none",
-          position: "absolute",
-          visibility: "hidden",
-          top: 0,
-        }}
-      >
-        {children}
+    <context.Provider value={{ pages }}>
+      <div data-paged-react-document="" style={{ display: "contents" }}>
+        <div
+          data-paged-react-source=""
+          ref={sourceRef}
+          style={{
+            left: "-100000px",
+            pointerEvents: "none",
+            position: "absolute",
+            visibility: "hidden",
+            top: 0,
+          }}
+        >
+          {children}
+        </div>
+        <div data-paged-react-pages="" ref={mergedRef} {...props} />
       </div>
-      <div data-paged-react-pages="" ref={mergedRef} {...props} />
-    </div>
+    </context.Provider>
   );
 });
 
