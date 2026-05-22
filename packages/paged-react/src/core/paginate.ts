@@ -133,19 +133,14 @@ function bodySegmenter(ctx: {
     }
   }
 
-  function bodySlice({
-    body,
-    bodyRect,
-    mutations,
-    parent = body,
-    superParentOffset = 0,
-  }: {
+  function bodySlice(ctx: {
     body: HTMLElement;
     bodyRect: DOMRect;
     mutations: Array<() => void>;
     parent?: HTMLElement;
     superParentOffset?: number;
   }): { segment: HTMLElement; stopped: boolean } {
+    const { body, bodyRect, mutations, parent = body, superParentOffset = 0 } = ctx;
     const segment = parent.cloneNode(false) as HTMLElement;
     const parentStyle = styleCache.get(parent);
     const parentOffset =
@@ -160,6 +155,15 @@ function bodySegmenter(ctx: {
 
         const targetRect = target.getBoundingClientRect();
         const targetStyle = styleCache.get(target);
+
+        const targetBottom =
+          targetRect.bottom +
+          targetStyle.marginBottom +
+          superParentOffset +
+          // We need to consider the parent offset
+          parentOffset -
+          // to get the relative position
+          bodyRect.top;
 
         const isEmptyShell =
           target.children.length === 0 &&
@@ -180,17 +184,12 @@ function bodySegmenter(ctx: {
           }
 
           segment.appendChild(target.cloneNode(true));
+          if (targetBottom <= maxBodyHeight) {
+            mutations.push(() => target.remove());
+          }
+
           continue;
         }
-
-        const targetBottom =
-          targetRect.bottom +
-          targetStyle.marginBottom +
-          superParentOffset +
-          // We need to consider the parent offset
-          parentOffset -
-          // to get the relative position
-          bodyRect.top;
 
         const canBreakTarget = canBreakElement(target);
         const hasNestedPageBreak = target.querySelector("[data-paged-react-page-break]") !== null;
