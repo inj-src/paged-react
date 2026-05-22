@@ -1,11 +1,16 @@
-export type CachedBoxStyle = {
+import { getBoxStyle } from "./utils.js";
+
+export type BoxStyle = {
+  borderTopWidth: number;
   borderBottomWidth: number;
+  marginTop: number;
   marginBottom: number;
+  paddingTop: number;
   paddingBottom: number;
 };
 
 export function createComputedStyleCache() {
-  const styles = new WeakMap<Element, CachedBoxStyle>();
+  const styles = new WeakMap<Element, BoxStyle>();
 
   return {
     get(element: Element) {
@@ -15,12 +20,7 @@ export function createComputedStyleCache() {
         return cachedStyle;
       }
 
-      const computedStyle = getComputedStyle(element);
-      const boxStyle = {
-        borderBottomWidth: parseFloat(computedStyle.borderBottomWidth) || 0,
-        marginBottom: parseFloat(computedStyle.marginBottom) || 0,
-        paddingBottom: parseFloat(computedStyle.paddingBottom) || 0,
-      };
+      const boxStyle = getBoxStyle(element);
 
       styles.set(element, boxStyle);
       return boxStyle;

@@ -123,3 +123,15 @@ export function connectedClone(element: HTMLElement) {
   document.body.appendChild(clone);
   return clone;
 }
+
+export function getBoxStyle(element: Element) {
+  const computedStyle = getComputedStyle(element);
+  return {
+    borderBottomWidth: parseFloat(computedStyle.borderBottomWidth) || 0,
+    borderTopWidth: parseFloat(computedStyle.borderTopWidth) || 0,
+    marginBottom: parseFloat(computedStyle.marginBottom) || 0,
+    marginTop: parseFloat(computedStyle.marginTop) || 0,
+    paddingBottom: parseFloat(computedStyle.paddingBottom) || 0,
+    paddingTop: parseFloat(computedStyle.paddingTop) || 0,
+  };
+}
