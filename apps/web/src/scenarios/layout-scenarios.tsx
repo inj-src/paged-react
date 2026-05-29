@@ -10,9 +10,13 @@ import {
   RevenueTable,
 } from "./shared";
 
-export function PaginatedMultiSegment() {
+export function PaginatedMultiSegment({
+  contentRef,
+}: {
+  contentRef: React.RefObject<HTMLDivElement | null>;
+}) {
   return (
-    <Document>
+    <Document ref={contentRef}>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -75,9 +79,13 @@ export function NaturalMultiSegment() {
   );
 }
 
-export function PaginatedMixedImageText() {
+export function PaginatedMixedImageText({
+  contentRef,
+}: {
+  contentRef: React.RefObject<HTMLDivElement | null>;
+}) {
   return (
-    <Document>
+    <Document ref={contentRef}>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -113,9 +121,13 @@ export function NaturalMixedImageText() {
   );
 }
 
-export function PaginatedTableRows() {
+export function PaginatedTableRows({
+  contentRef,
+}: {
+  contentRef: React.RefObject<HTMLDivElement | null>;
+}) {
   return (
-    <Document>
+    <Document ref={contentRef}>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -162,9 +174,13 @@ export function NaturalTableRows() {
   );
 }
 
-export function PaginatedNestedLayout() {
+export function PaginatedNestedLayout({
+  contentRef,
+}: {
+  contentRef: React.RefObject<HTMLDivElement | null>;
+}) {
   return (
-    <Document>
+    <Document ref={contentRef}>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { ComparisonPanel } from "./components/comparison-panel";
 import { ScenarioSelect } from "./components/scenario-select";
 import {
@@ -22,6 +22,7 @@ import {
   PaginatedTableRows,
 } from "./scenarios/layout-scenarios";
 import type { ScenarioId } from "./scenarios/types";
+import { useReactToPrint } from "react-to-print";
 
 function App() {
   const STORAGE_KEY = "paged-react:scenario";
@@ -29,6 +30,9 @@ function App() {
     const raw = localStorage.getItem(STORAGE_KEY);
     return (raw as ScenarioId) || "long-article";
   });
+
+  const contentRef = useRef<HTMLDivElement>(null);
+  const reactToPrintFn = useReactToPrint({ contentRef });
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, scenario);
@@ -39,42 +43,42 @@ function App() {
       case "forced-breaks":
         return {
           natural: <NaturalForcedBreaks />,
-          paginated: <PaginatedForcedBreaks />,
+          paginated: <PaginatedForcedBreaks contentRef={contentRef} />,
         };
       case "legacy-breaks":
         return {
           natural: <NaturalLegacyBreaks />,
-          paginated: <PaginatedLegacyBreaks />,
+          paginated: <PaginatedLegacyBreaks contentRef={contentRef} />,
         };
       case "break-inside-avoid":
         return {
           natural: <NaturalBreakInsideAvoid />,
-          paginated: <PaginatedBreakInsideAvoid />,
+          paginated: <PaginatedBreakInsideAvoid contentRef={contentRef} />,
         };
       case "multi-segment":
         return {
           natural: <NaturalMultiSegment />,
-          paginated: <PaginatedMultiSegment />,
+          paginated: <PaginatedMultiSegment contentRef={contentRef} />,
         };
       case "mixed-image-text":
         return {
           natural: <NaturalMixedImageText />,
-          paginated: <PaginatedMixedImageText />,
+          paginated: <PaginatedMixedImageText contentRef={contentRef} />,
         };
       case "table-rows":
         return {
           natural: <NaturalTableRows />,
-          paginated: <PaginatedTableRows />,
+          paginated: <PaginatedTableRows contentRef={contentRef} />,
         };
       case "nested-layout":
         return {
           natural: <NaturalNestedLayout />,
-          paginated: <PaginatedNestedLayout />,
+          paginated: <PaginatedNestedLayout contentRef={contentRef} />,
         };
       default:
         return {
           natural: <NaturalLongArticle />,
-          paginated: <PaginatedLongArticle />,
+          paginated: <PaginatedLongArticle contentRef={contentRef} />,
         };
     }
   }, [scenario]);
@@ -89,6 +93,12 @@ function App() {
           <p className="m-0 text-slate-600">Natural flow vs paginated flow comparison</p>
         </div>
         <div className="flex max-md:flex-col flex-wrap items-end max-md:items-start gap-3">
+          <button
+            className="bg-blue-500 hover:bg-blue-700 px-4 py-2 rounded font-bold text-white"
+            onClick={reactToPrintFn}
+          >
+            Print
+          </button>
           <ScenarioSelect scenario={scenario} onScenarioChange={setScenario} />
         </div>
       </header>

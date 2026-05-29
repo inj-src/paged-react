@@ -8,9 +8,13 @@ import {
   Paragraphs,
 } from "./shared";
 
-export function PaginatedLongArticle() {
+export function PaginatedLongArticle({
+  contentRef,
+}: {
+  contentRef: React.RefObject<HTMLDivElement | null>;
+}) {
   return (
-    <Document>
+    <Document ref={contentRef}>
       <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Quarterly Report" right="Long Article" />
@@ -44,9 +48,13 @@ export function NaturalLongArticle() {
   );
 }
 
-export function PaginatedForcedBreaks() {
+export function PaginatedForcedBreaks({
+  contentRef,
+}: {
+  contentRef: React.RefObject<HTMLDivElement | null>;
+}) {
   return (
-    <Document>
+    <Document ref={contentRef}>
       <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Forced Breaks" />
@@ -84,9 +92,13 @@ export function NaturalForcedBreaks() {
   );
 }
 
-export function PaginatedLegacyBreaks() {
+export function PaginatedLegacyBreaks({
+  contentRef,
+}: {
+  contentRef: React.RefObject<HTMLDivElement | null>;
+}) {
   return (
-    <Document>
+    <Document ref={contentRef}>
       <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Legacy Break Properties" />
@@ -134,9 +146,13 @@ export function NaturalLegacyBreaks() {
   );
 }
 
-export function PaginatedBreakInsideAvoid() {
+export function PaginatedBreakInsideAvoid({
+  contentRef,
+}: {
+  contentRef: React.RefObject<HTMLDivElement | null>;
+}) {
   return (
-    <Document>
+    <Document ref={contentRef}>
       <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Break Inside Avoid" />
