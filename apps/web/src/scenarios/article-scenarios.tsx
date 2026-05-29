@@ -1,4 +1,4 @@
-import { Document, PageBreak, pageSizes } from "@repo/paged-react";
+import { Document, PageBreak, pageSizes } from "paged-react";
 import {
   FooterLine,
   ForcedBreakMarker,

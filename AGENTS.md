@@ -1,5 +1,5 @@
 - Review `PAGINATION_PRD.md` regularly and update progress checkboxes as features land.
-- Try to not write a file longer then 300 lines, if written then notify the user
+- Try to not write a file longer then 300 lines, if written then notify the user, ignore generated files
 - Use the smallest possible diff to make change when asked. Then think of how to make it smaller and do that again.
 - Don't add helpers.
 - Do not use fallbacks with ternaries or the ||

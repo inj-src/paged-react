@@ -20,12 +20,12 @@ importers:
 
   apps/web:
     dependencies:
-      '@repo/paged-react':
-        specifier: workspace:*
-        version: link:../../packages/paged-react
       '@tailwindcss/vite':
         specifier: ^4.2.4
         version: 4.2.4(vite@8.0.11(@types/node@24.12.3)(esbuild@0.27.7)(jiti@2.7.0))
+      paged-react:
+        specifier: workspace:*
+        version: link:../../packages/paged-react
       react:
         specifier: ^19.2.5
         version: 19.2.6

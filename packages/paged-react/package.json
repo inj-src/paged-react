@@ -1,9 +1,25 @@
 {
-  "name": "@repo/paged-react",
-  "version": "0.0.0",
+  "name": "paged-react",
+  "version": "0.1.0",
   "description": "React components for print-ready documents with automatic pagination.",
   "type": "module",
   "license": "MIT",
+  "homepage": "https://github.com/inj-src/paged-react#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inj-src/paged-react.git",
+    "directory": "packages/paged-react"
+  },
+  "bugs": {
+    "url": "https://github.com/inj-src/paged-react/issues"
+  },
+  "keywords": [
+    "react",
+    "pagination",
+    "print",
+    "paged-media",
+    "pdf"
+  ],
   "sideEffects": [
     "./dist/styles.css",
     "./src/styles.css"
@@ -26,7 +42,7 @@
     "dev": "node scripts/dev.mjs",
     "check-types": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "peerDependencies": {
     "react": ">=18 <20",

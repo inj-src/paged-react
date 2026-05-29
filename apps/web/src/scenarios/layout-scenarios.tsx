@@ -1,4 +1,4 @@
-import { Document, pageSizes, Watermark } from "@repo/paged-react";
+import { Document, pageSizes, Watermark } from "paged-react";
 import { NestedPrescriptionLayout } from "./nested-prescription-layout";
 import {
   FooterLine,
