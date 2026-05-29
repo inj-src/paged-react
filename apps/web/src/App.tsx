@@ -22,6 +22,7 @@ import {
   PaginatedTableRows,
 } from "./scenarios/layout-scenarios";
 import type { ScenarioId } from "./scenarios/types";
+
 import "@repo/paged-react/styles.css";
 
 function App() {
