@@ -38,11 +38,13 @@
   line-height: 1.45;
 }
 
-[data-paged-react-pages] {
-  gap: 24px;
-}
+@media screen {
+  [data-paged-react-pages] {
+    gap: 24px;
+  }
 
-[data-paged-react-page] {
-  border: 1px solid rgb(203 213 225);
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+  [data-paged-react-page] {
+    border: 1px solid rgb(203 213 225);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+  }
 }
