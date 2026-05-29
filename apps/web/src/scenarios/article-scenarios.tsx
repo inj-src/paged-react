@@ -10,7 +10,7 @@ import {
 
 export function PaginatedLongArticle() {
   return (
-    <Document pruneSource>
+    <Document>
       <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Quarterly Report" right="Long Article" />
@@ -46,7 +46,7 @@ export function NaturalLongArticle() {
 
 export function PaginatedForcedBreaks() {
   return (
-    <Document pruneSource>
+    <Document>
       <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Forced Breaks" />
@@ -86,7 +86,7 @@ export function NaturalForcedBreaks() {
 
 export function PaginatedLegacyBreaks() {
   return (
-    <Document pruneSource>
+    <Document>
       <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Legacy Break Properties" />
@@ -136,7 +136,7 @@ export function NaturalLegacyBreaks() {
 
 export function PaginatedBreakInsideAvoid() {
   return (
-    <Document pruneSource>
+    <Document>
       <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Break Inside Avoid" />

@@ -7,7 +7,6 @@
 - [x] `PageBreak` component.
 - [x] Hidden source DOM and visible generated page DOM.
 - [x] Source DOM is hidden inline by default.
-- [x] Optional `pruneSource`.
 - [x] Segment-by-segment pagination.
 - [x] Repeated header/footer cloning per generated page.
 - [x] Block-first body overflow pagination loop.

@@ -29,7 +29,6 @@ export type SlotProps = ComponentPropsWithoutRef<"div">;
 
 export type DocumentProps = SlotProps & {
   children: ReactNode;
-  pruneSource?: boolean;
 };
 
 export type DocumentSegmentProps = SlotProps & {

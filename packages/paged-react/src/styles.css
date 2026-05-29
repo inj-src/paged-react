@@ -20,7 +20,6 @@
 
 [data-paged-react-pages] {
   display: grid;
-  gap: 24px;
 }
 
 [data-paged-react-page] {
@@ -32,7 +31,16 @@
   position: relative;
 }
 
+[data-paged-react-page-body] {
+  min-width: 0;
+}
+
 [data-paged-react-body-source] {
   min-height: 0;
   overflow: hidden;
+}
+
+[data-paged-react-watermark] {
+  position: absolute;
+  inset: 0;
 }

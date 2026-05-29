@@ -73,7 +73,7 @@ export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(
 );
 
 const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document(
-  { children, pruneSource = true, ...props },
+  { children, ...props },
   ref,
 ) {
   const sourceRef = useRef<HTMLDivElement | null>(null);
@@ -111,7 +111,6 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
       sourceRoot,
       pagesRoot,
       signal: abortController.signal,
-      pruneSource,
     }).then((generatedPages) => {
       if (abortController.signal.aborted) {
         return;
@@ -123,13 +122,13 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
     return () => {
       abortController.abort();
     };
-  }, [children, pruneSource]);
+  }, [children]);
 
   return (
     <context.Provider value={{ pages }}>
-      <div data-paged-react-document-source="" style={{ display: "contents" }}>
+      <div data-paged-react-document-source style={{ display: "contents" }}>
         <div
-          data-paged-react-root-source=""
+          data-paged-react-root-source
           ref={sourceRef}
           style={{
             left: "-100000px",
@@ -141,7 +140,7 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
         >
           {children}
         </div>
-        <div data-paged-react-pages="" ref={mergedRef} {...props} />
+        <div data-paged-react-pages ref={mergedRef} {...props} />
       </div>
     </context.Provider>
   );

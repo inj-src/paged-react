@@ -17,14 +17,15 @@ type PaginationContext = {
   sourceRoot: HTMLDivElement;
   pagesRoot: HTMLDivElement;
   signal?: AbortSignal;
-  pruneSource?: boolean;
 };
 
 export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElement[]> {
-  const { sourceRoot, pagesRoot, signal, pruneSource } = ctx;
+  const { sourceRoot, pagesRoot, signal } = ctx;
   const pages: HTMLElement[] = [];
 
   if (signal?.aborted) return pages;
+
+  pagesRoot.replaceChildren();
 
   await waitForLayoutReady(sourceRoot);
 
@@ -94,7 +95,6 @@ export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElem
   }
 
   sourceRootClone.remove();
-  if (pruneSource) sourceRoot.remove();
   return pages;
 }
 

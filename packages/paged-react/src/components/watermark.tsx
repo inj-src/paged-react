@@ -22,7 +22,6 @@ export function Watermark(props: {
     return pages.map(() => {
       const wrapper = document.createElement("div");
       wrapper.setAttribute("data-paged-react-watermark", "");
-      wrapper.style.position = "absolute";
       return wrapper;
     });
   }, [pages]);

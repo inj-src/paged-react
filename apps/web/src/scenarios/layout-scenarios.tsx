@@ -1,4 +1,4 @@
-import { Document, pageSizes } from "@repo/paged-react";
+import { Document, pageSizes, Watermark } from "@repo/paged-react";
 import { NestedPrescriptionLayout } from "./nested-prescription-layout";
 import {
   FooterLine,
@@ -12,7 +12,7 @@ import {
 
 export function PaginatedMultiSegment() {
   return (
-    <Document pruneSource>
+    <Document>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -77,7 +77,7 @@ export function NaturalMultiSegment() {
 
 export function PaginatedMixedImageText() {
   return (
-    <Document pruneSource>
+    <Document>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -115,7 +115,7 @@ export function NaturalMixedImageText() {
 
 export function PaginatedTableRows() {
   return (
-    <Document pruneSource>
+    <Document>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -164,7 +164,7 @@ export function NaturalTableRows() {
 
 export function PaginatedNestedLayout() {
   return (
-    <Document pruneSource>
+    <Document>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -181,13 +181,17 @@ export function PaginatedNestedLayout() {
           <NestedPrescriptionLayout />
         </Document.Body>
         <Document.Footer>
+          <Watermark>
+            {({ pages, pageIndex }) => {
+              return (
+                <span className="text-slate-400 text-sm">
+                  Page {pageIndex + 1} of {pages.length}
+                </span>
+              );
+            }}
+          </Watermark>
           <FooterLine content="Nested Layout Pagination" />
         </Document.Footer>
-        {/* <Watermark>
-          {({ pages, pageIndex }) => {
-            return `Page ${pageIndex + 1} of ${pages.length}`;
-          }}
-        </Watermark> */}
       </Document.Segment>
     </Document>
   );

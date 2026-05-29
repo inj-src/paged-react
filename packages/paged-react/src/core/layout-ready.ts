@@ -1,4 +1,4 @@
-function waitForImages(root: HTMLElement): Promise<void> {
+async function waitForImages(root: HTMLElement) {
   const images = Array.from(root.querySelectorAll("img"));
 
   if (!images.length) {
@@ -19,7 +19,7 @@ function waitForImages(root: HTMLElement): Promise<void> {
   ).then(() => undefined);
 }
 
-export async function waitForLayoutReady(root: HTMLElement): Promise<void> {
+export async function waitForLayoutReady(root: HTMLElement) {
   if (document.fonts && "ready" in document.fonts) {
     await document.fonts.ready;
   }
