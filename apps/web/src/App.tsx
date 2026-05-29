@@ -23,8 +23,6 @@ import {
 } from "./scenarios/layout-scenarios";
 import type { ScenarioId } from "./scenarios/types";
 
-import "@repo/paged-react/styles.css";
-
 function App() {
   const STORAGE_KEY = "paged-react:scenario";
   const [scenario, setScenario] = useState<ScenarioId>(() => {
