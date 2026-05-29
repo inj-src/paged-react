@@ -15,7 +15,9 @@ Import the components and the package stylesheet once in your app.
 ```tsx
 import { Document, PageBreak, pageSizes } from "paged-react";
 import "paged-react/styles.css";
-// The package imports its base CSS from the main entry. If your bundler does not load library CSS side effects, import `paged-react/styles.css` manually.
+// The package imports its base CSS from the main entry.
+// If your bundler does not load library CSS side effects,
+// then import `paged-react/styles.css` manually.
 
 export function Report() {
   return (
@@ -54,7 +56,8 @@ export function Report() {
 
 ```tsx
 import { useRef } from "react";
-import { useReactToPrint } from "react-to-print"; // npm i react-to-print
+// npm i react-to-print
+import { useReactToPrint } from "react-to-print";
 import { Document, pageSizes } from "paged-react";
 import "paged-react/styles.css";
 

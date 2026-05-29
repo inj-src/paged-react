@@ -1,159 +1,176 @@
-# Turborepo starter
+# paged-react
 
-This Turborepo starter is maintained by the Turborepo core team.
+React components for building print-ready documents with automatic pagination.
 
-## Using this example
-
-Run the following command:
+The examples below use the expected npm package name:
 
 ```sh
-npx create-turbo@latest
+npm install paged-react
 ```
 
-## What's inside?
+## Quick Start
 
-This Turborepo includes the following packages/apps:
+Import the components and the package stylesheet once in your app.
 
-### Apps and Packages
+```tsx
+import { Document, PageBreak, pageSizes } from "paged-react";
+import "paged-react/styles.css";
+// The package imports its base CSS from the main entry.
+// If your bundler does not load library CSS side effects,
+// then import `paged-react/styles.css` manually.
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+export function Report() {
+  return (
+    <Document>
+      <Document.Segment pageSize={pageSizes.A4} className="report-page">
+        <Document.Header>
+          <h1>Monthly Report</h1>
+        </Document.Header>
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+        <Document.Body>
+          <p>This content will be split into pages when it gets too long.</p>
+          <PageBreak />
+          <p>This starts on the next page.</p>
+        </Document.Body>
 
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+        <Document.Footer>
+          <span>Company footer</span>
+        </Document.Footer>
+      </Document.Segment>
+    </Document>
+  );
+}
 ```
 
-Without global `turbo`, use your package manager:
+`Document.Segment` must receive a `pageSize`. Use a built-in size such as `pageSizes.A4`, `pageSizes.Letter`, or pass your own size object:
 
-```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+```tsx
+<Document.Segment pageSize={{ width: "210mm", height: "297mm" }}>
+  {/* header, body, and footer */}
+</Document.Segment>
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## Printing
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+`paged-react` creates the paginated DOM. Use `react-to-print` to open the browser print dialog.
 
-```sh
-turbo build --filter=docs
+```tsx
+import { useRef } from "react";
+// npm i react-to-print
+import { useReactToPrint } from "react-to-print";
+import { Document, pageSizes } from "paged-react";
+import "paged-react/styles.css";
+
+export function PrintableReport() {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const print = useReactToPrint({ contentRef });
+
+  return (
+    <>
+      <button type="button" onClick={print}>
+        Print
+      </button>
+
+      <Document ref={contentRef}>
+        <Document.Segment pageSize={pageSizes.A4}>
+          <Document.Header>Header</Document.Header>
+          <Document.Body>Report content</Document.Body>
+          <Document.Footer>Footer</Document.Footer>
+        </Document.Segment>
+      </Document>
+    </>
+  );
+}
 ```
 
-Without global `turbo`:
+## Optional Screen Preview CSS
 
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+The package CSS handles the document structure. Add this optional CSS in your app to make pages look nicer on screen before printing:
+
+```css
+@media screen {
+  [data-paged-react-pages] {
+    gap: 24px;
+  }
+
+  [data-paged-react-page] {
+    border: 1px solid gray;
+  }
+}
 ```
 
-### Develop
+## Main Pieces
 
-To develop all apps and packages, run the following command:
+- `Document`: the root component. Attach your print ref here.
+- `Document.Segment`: one paginated section with its own page size.
+- `Document.Header`: repeated at the top of every generated page in the segment.
+- `Document.Body`: the content that gets split across pages.
+- `Document.Footer`: repeated at the bottom of every generated page in the segment.
+- `PageBreak`: starts following content on a new page.
+- `Watermark`: renders a watermark inside the document.
+- `pageSizes`: built-in page sizes, including A-series, B4, B5, Letter, Legal, and Ledger.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+Slots accept normal `div` props such as `className`, `style`, `id`, `data-*`, and `aria-*`.
 
-```sh
-cd my-turborepo
-turbo dev
+## Watermark
+
+Use `Watermark` inside `Document`. It receives a render function with the current zero-based `pageIndex` and the generated `pages` array. The `Watermark` component gets copied over and rendered to every-single page.
+
+```tsx
+<Document>
+  <Document.Segment pageSize={pageSizes.A4}>
+    <Document.Body>Report content</Document.Body>
+  </Document.Segment>
+
+  <Watermark>
+    {({ pageIndex, pages }) => (
+      <div>
+        Draft - page {pageIndex + 1} of {pages.length}
+      </div>
+    )}
+  </Watermark>
+</Document>
 ```
 
-Without global `turbo`, use your package manager:
+The rendered watermark is portaled into each generated page.
 
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
+## Tables
+
+Direct child `<table>` elements inside `Document.Body` can be split by row when they overflow a page.
+
+```tsx
+<Document.Segment pageSize={pageSizes.A4} repeatTableHeader>
+  <Document.Body>
+    <table>{/* rows */}</table>
+  </Document.Body>
+</Document.Segment>
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+If a table has a `<thead>`, the first table fragment keeps that header even when `repeatTableHeader` is not set. Use `repeatTableHeader` on `Document.Segment` when continuation pages should also repeat the original `<thead>`.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## Page Breaks
 
-```sh
-turbo dev --filter=web
-```
+Use `PageBreak` for an explicit new page. This is the supported way to force a page break.
 
-Without global `turbo`:
+`page-break-inside: avoid` is supported as a keep-together hint. Use it when a block should move to the next page instead of being split across pages.
 
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
+`break-before`, `page-break-before`, `break-after`, and `page-break-after` are intentionally ignored. Use `PageBreak` so there is only one explicit way to force a new page.
 
-### Remote Caching
+## Limitations
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+- This is not a full browser print engine. It uses DOM measurement and cloning to build pages.
+- Pagination runs in the browser, so output can vary slightly between browsers, fonts, zoom levels, and loaded assets.
+- Very complex layouts can be difficult to split perfectly, especially grids, flex-heavy layouts, positioned elements, transforms, and deeply nested components.
+- If an item cannot be broken down and does not fit in one page, it stays on a single generated page and is clipped.
+- Tables are best supported when the table is a direct child of `Document.Body`.
+- Images and custom fonts should be loaded before printing for the most reliable result.
+- Server-side rendering cannot know final page breaks because pagination depends on browser layout measurement.
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+## Styling Hooks
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+- `[data-paged-react-document]`: root container
+- `[data-paged-react-pages]`: generated pages wrapper
+- `[data-paged-react-page]`: generated page
+- `[data-paged-react-page-header]`: rendered header slot
+- `[data-paged-react-page-body]`: rendered body slot
+- `[data-paged-react-page-footer]`: rendered footer slot
