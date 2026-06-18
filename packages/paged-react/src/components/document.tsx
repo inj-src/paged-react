@@ -73,7 +73,7 @@ export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(
 );
 
 const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document(
-  { children, ...props },
+  { children, paginate = true, doNotHideSource = false, ...props },
   ref,
 ) {
   const sourceRef = useRef<HTMLDivElement | null>(null);
@@ -92,6 +92,7 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
   }, [ref]);
 
   useEffect(() => {
+    if (!paginate) return;
     const sourceRoot = sourceRef.current;
     const pagesRoot = pagesRef.current;
 
@@ -122,25 +123,29 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
     return () => {
       abortController.abort();
     };
-  }, [children]);
+  }, [children, paginate]);
 
   return (
     <context.Provider value={{ pages }}>
-      <div data-paged-react-document-source style={{ display: "contents" }}>
+      <div style={{ display: "contents" }}>
+        <div data-paged-react-pages ref={mergedRef} {...props} />
         <div
           data-paged-react-root-source
           ref={sourceRef}
-          style={{
-            left: "-100000px",
-            pointerEvents: "none",
-            position: "absolute",
-            visibility: "hidden",
-            top: 0,
-          }}
+          style={
+            doNotHideSource
+              ? undefined
+              : {
+                  left: "-100000px",
+                  pointerEvents: "none",
+                  position: "absolute",
+                  visibility: "hidden",
+                  top: 0,
+                }
+          }
         >
           {children}
         </div>
-        <div data-paged-react-pages ref={mergedRef} {...props} />
       </div>
     </context.Provider>
   );
