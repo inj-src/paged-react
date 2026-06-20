@@ -10,7 +10,7 @@
   box-sizing: border-box;
 }
 
-[data-paged-react-root-source] {
+[data-paged-react-source][data-paged-react-source-hidden="true"] {
   left: -100000px;
   pointer-events: none;
   position: absolute;

@@ -130,19 +130,9 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
       <div style={{ display: "contents" }}>
         <div data-paged-react-pages ref={mergedRef} {...props} />
         <div
-          data-paged-react-root-source
+          data-paged-react-source
+          data-paged-react-source-hidden={String(!doNotHideSource)}
           ref={sourceRef}
-          style={
-            doNotHideSource
-              ? undefined
-              : {
-                  left: "-100000px",
-                  pointerEvents: "none",
-                  position: "absolute",
-                  visibility: "hidden",
-                  top: 0,
-                }
-          }
         >
           {children}
         </div>

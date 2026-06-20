@@ -180,7 +180,7 @@ export function PaginatedNestedLayout({
   contentRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <Document ref={contentRef}>
+    <Document ref={contentRef} paginate={false} doNotHideSource>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
