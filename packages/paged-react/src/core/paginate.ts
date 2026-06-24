@@ -121,13 +121,14 @@ async function* bodySegmenter(ctx: {
   if (!body) return;
 
   const styleCache = createComputedStyleCache();
+  const pageBreaks = Array.from(body.querySelectorAll("[data-paged-react-page-break]"));
 
   while (true) {
     if (signal?.aborted) return;
 
     const bodyRect = body.getBoundingClientRect();
     const bodyHeight = bodyRect.height;
-    const hasPageBreak = body.querySelector("[data-paged-react-page-break]") !== null;
+    const hasPageBreak = pageBreaks.some((pageBreak) => body.contains(pageBreak));
 
     if (bodyHeight <= maxBodyHeight && !hasPageBreak) {
       yield body;
@@ -209,7 +210,7 @@ async function* bodySegmenter(ctx: {
         }
 
         const canBreakTarget = canBreakElement(target);
-        const hasNestedPageBreak = target.querySelector("[data-paged-react-page-break]") !== null;
+        const hasNestedPageBreak = pageBreaks.some((pageBreak) => target.contains(pageBreak));
 
         if (targetBottom <= maxBodyHeight && !hasNestedPageBreak) {
           // Keep pagination-created empty shells that still have box height.
