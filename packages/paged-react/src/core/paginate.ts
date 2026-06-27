@@ -247,6 +247,15 @@ async function* bodySegmenter(ctx: {
         } else {
           if (segment.childNodes.length) return { segment, stopped: true };
 
+          const targetRequiredPageHeight =
+            targetRect.height +
+            Math.max(0, targetStyle.marginTop) +
+            Math.max(0, targetStyle.marginBottom);
+
+          if (targetRequiredPageHeight <= maxBodyHeight && mutations.length > 0) {
+            return { segment, stopped: true };
+          }
+
           console.error(
             "Paged React: unbreakable element exceeds one page and will be clipped.",
             target,
