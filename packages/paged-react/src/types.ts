@@ -31,6 +31,7 @@ export type DocumentProps = SlotProps & {
   children: ReactNode;
   doNotHideSource?: boolean;
   paginate?: boolean;
+  afterPaginate?: () => void;
 };
 
 export type DocumentSegmentProps = SlotProps & {

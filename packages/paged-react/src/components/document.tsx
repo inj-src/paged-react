@@ -73,7 +73,7 @@ export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(
 );
 
 const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document(
-  { children, paginate = true, doNotHideSource = false, ...props },
+  { children, afterPaginate, paginate = true, doNotHideSource = false, ...props },
   ref,
 ) {
   const sourceRef = useRef<HTMLDivElement | null>(null);
@@ -116,14 +116,14 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
       if (abortController.signal.aborted) {
         return;
       }
-
+      afterPaginate?.();
       setPages(generatedPages);
     });
 
     return () => {
       abortController.abort();
     };
-  }, [children, paginate]);
+  }, [children, paginate, afterPaginate]);
 
   return (
     <context.Provider value={{ pages }}>
