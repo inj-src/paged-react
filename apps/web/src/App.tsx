@@ -32,7 +32,12 @@ function App() {
   });
 
   const contentRef = useRef<HTMLDivElement>(null);
-  const reactToPrintFn = useReactToPrint({ contentRef });
+  const reactToPrintFn = useReactToPrint({
+    contentRef,
+    print: async (iframe) => {
+      console.log(iframe.contentWindow!.document.querySelector("html")?.innerHTML);
+    },
+  });
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, scenario);

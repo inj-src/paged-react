@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import spawn from "cross-spawn";
 import { copyFileSync, mkdirSync, watchFile } from "node:fs";
 
 mkdirSync("dist", { recursive: true });
