@@ -68,11 +68,20 @@ export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElem
       segment.getAttribute("data-paged-react-repeat-table-header") === "true";
 
     console.time(`Segment ${segmentIndex + 1} pagination`);
-    const bodies = bodySegmenter({ body: bodySlot, maxBodyHeight, repeatTableHeader });
-    console.timeEnd(`Segment ${segmentIndex + 1} pagination`);
 
-    for (const [bodyIndex, bodySegment] of bodies.entries()) {
-      if (signal?.aborted) return pages;
+    const bodyPayload = {
+      body: bodySlot,
+      maxBodyHeight,
+      repeatTableHeader,
+      signal,
+    };
+
+    let bodyIndex = 0;
+    for await (const bodySegment of bodySegmenter(bodyPayload)) {
+      if (signal?.aborted) {
+        console.timeEnd(`Segment ${segmentIndex + 1} pagination`);
+        return pages;
+      }
 
       const page = createPage({
         segment,
@@ -91,46 +100,55 @@ export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElem
       cloneChildrenInto(page.footer, footerSlot);
       cloneChildrenInto(page.body, bodySegment);
       pages.push(page.page);
+
+      bodyIndex += 1;
     }
+    console.timeEnd(`Segment ${segmentIndex + 1} pagination`);
   }
 
   sourceRootClone.remove();
   return pages;
 }
 
-function bodySegmenter(ctx: {
+async function* bodySegmenter(ctx: {
   body: HTMLElement | null;
   maxBodyHeight: number;
   repeatTableHeader: boolean;
-}) {
-  const { body, maxBodyHeight, repeatTableHeader } = ctx;
-  const bodySegments: HTMLElement[] = [];
+  signal?: AbortSignal;
+}): AsyncGenerator<HTMLElement> {
+  const { body, maxBodyHeight, repeatTableHeader, signal } = ctx;
 
-  if (!body) return bodySegments;
+  if (!body) return;
 
   const styleCache = createComputedStyleCache();
+  const pageBreaks = Array.from(body.querySelectorAll("[data-paged-react-page-break]"));
 
   while (true) {
+    if (signal?.aborted) return;
+
     const bodyRect = body.getBoundingClientRect();
     const bodyHeight = bodyRect.height;
-    const hasPageBreak = body.querySelector("[data-paged-react-page-break]") !== null;
+    const hasPageBreak = pageBreaks.some((pageBreak) => body.contains(pageBreak));
 
     if (bodyHeight <= maxBodyHeight && !hasPageBreak) {
-      bodySegments.push(body);
-      return bodySegments;
+      yield body;
+      return;
     }
 
     const mutations: Array<() => void> = [];
     const pageSlice = bodySlice({ body, bodyRect, mutations });
-    bodySegments.push(pageSlice.segment);
+    yield pageSlice.segment;
 
     if (!mutations.length) {
-      return bodySegments;
+      return;
     }
 
     for (const mutation of mutations) {
       mutation();
     }
+
+    await new Promise<void>((resolve) => setTimeout(resolve));
+    if (signal?.aborted) return;
   }
 
   function bodySlice(ctx: {
@@ -192,7 +210,7 @@ function bodySegmenter(ctx: {
         }
 
         const canBreakTarget = canBreakElement(target);
-        const hasNestedPageBreak = target.querySelector("[data-paged-react-page-break]") !== null;
+        const hasNestedPageBreak = pageBreaks.some((pageBreak) => target.contains(pageBreak));
 
         if (targetBottom <= maxBodyHeight && !hasNestedPageBreak) {
           // Keep pagination-created empty shells that still have box height.
@@ -228,6 +246,15 @@ function bodySegmenter(ctx: {
           if (childSegment.stopped) return { segment, stopped: true };
         } else {
           if (segment.childNodes.length) return { segment, stopped: true };
+
+          const targetRequiredPageHeight =
+            targetRect.height +
+            Math.max(0, targetStyle.marginTop) +
+            Math.max(0, targetStyle.marginBottom);
+
+          if (targetRequiredPageHeight <= maxBodyHeight && mutations.length > 0) {
+            return { segment, stopped: true };
+          }
 
           console.error(
             "Paged React: unbreakable element exceeds one page and will be clipped.",
