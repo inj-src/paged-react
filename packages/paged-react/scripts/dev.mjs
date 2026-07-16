@@ -8,6 +8,11 @@ function copyStyles() {
 }
 
 copyStyles();
+
+if (process.argv.includes("--copy-only")) {
+  process.exit(0);
+}
+
 watchFile("src/styles.css", { interval: 200 }, copyStyles);
 
 const child = spawn("tsc", ["-p", "tsconfig.json", "--watch", "--preserveWatchOutput"], {

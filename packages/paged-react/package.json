@@ -1,6 +1,6 @@
 {
   "name": "paged-react",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "description": "React components for print-ready documents with automatic pagination.",
   "type": "module",
   "license": "MIT",
@@ -38,7 +38,7 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json && cp src/styles.css dist/styles.css",
+    "build": "tsc -p tsconfig.json && node scripts/dev.mjs --copy-only",
     "dev": "node scripts/dev.mjs",
     "check-types": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
