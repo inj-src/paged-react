@@ -11,10 +11,7 @@ export type ResolvedPageSize = {
 };
 
 /** Returns a direct segment slot without walking into nested child documents. */
-export function getDirectSlot(
-  parent: Element,
-  attribute: "header" | "body" | "footer",
-): HTMLDivElement | null {
+export function getDirectSlot(parent: Element, attribute: "header" | "body" | "footer"): HTMLDivElement | null {
   return parent.querySelector(`:scope > [data-paged-react-${attribute}-source]`);
 }
 
@@ -42,8 +39,8 @@ export function getEffectivePageSize(el: HTMLElement): ResolvedPageSize {
 }
 
 /** Converts a CSS page size value (e.g. mm/in/px) into numeric pixel dimensions. */
-export function resolvePageSizeInPixels(pageSize: ResolvedPageSize) {
-  const probe = document.createElement("div");
+export function resolvePageSizeInPixels(pageSize: ResolvedPageSize, ownerDocument: Document) {
+  const probe = ownerDocument.createElement("div");
   probe.style.position = "absolute";
   probe.style.visibility = "hidden";
   probe.style.pointerEvents = "none";
@@ -52,7 +49,7 @@ export function resolvePageSizeInPixels(pageSize: ResolvedPageSize) {
   probe.style.width = pageSize.width;
   probe.style.height = pageSize.height;
 
-  document.body.appendChild(probe);
+  ownerDocument.body.appendChild(probe);
 
   const rect = probe.getBoundingClientRect();
   probe.remove();
@@ -88,21 +85,21 @@ export function createPage({
   page.style.height = pageSize.height;
   page.style.width = pageSize.width;
 
-  let header = document.createElement("div");
+  let header = pagesRoot.ownerDocument.createElement("div");
   if (headerSlot) {
     header = headerSlot.cloneNode(false) as HTMLDivElement;
   }
   header.setAttribute("data-paged-react-page-header", "");
   header.removeAttribute("data-paged-react-header-source");
 
-  let body = document.createElement("div");
+  let body = pagesRoot.ownerDocument.createElement("div");
   if (bodySlot) {
     body = bodySlot.cloneNode(false) as HTMLDivElement;
   }
   body.setAttribute("data-paged-react-page-body", "");
   body.removeAttribute("data-paged-react-body-source");
 
-  let footer = document.createElement("div");
+  let footer = pagesRoot.ownerDocument.createElement("div");
   if (footerSlot) {
     footer = footerSlot.cloneNode(false) as HTMLDivElement;
   }
@@ -120,12 +117,16 @@ export function connectedClone(element: HTMLElement) {
   clone.style.left = "-100000px";
   clone.style.position = "absolute";
   clone.style.top = "0";
-  document.body.appendChild(clone);
+  element.ownerDocument.body.appendChild(clone);
   return clone;
 }
 
 export function getBoxStyle(element: Element) {
-  const computedStyle = getComputedStyle(element);
+  const view = element.ownerDocument.defaultView;
+  if (!view) {
+    throw new Error("Paged React requires a document with an active window.");
+  }
+  const computedStyle = view.getComputedStyle(element);
   return {
     borderBottomWidth: parseFloat(computedStyle.borderBottomWidth) || 0,
     borderTopWidth: parseFloat(computedStyle.borderTopWidth) || 0,

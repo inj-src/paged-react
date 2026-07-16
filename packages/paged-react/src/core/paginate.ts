@@ -3,6 +3,8 @@ import { canBreakElement } from "./avoid-break.js";
 import { createComputedStyleCache } from "./computed-style.js";
 import { waitForLayoutReady } from "./layout-ready.js";
 import { connectedClone, getBoxStyle } from "./utils.js";
+import { resolvePageSize } from "../utils/page-size.js";
+import type { PaginateDocumentContext } from "../types.js";
 import {
   cloneChildrenInto,
   createPage,
@@ -13,14 +15,8 @@ import {
 
 const EMPTY_BY_PAGINATION_ATTRIBUTE = "data-paged-react-empty-by-pagination";
 
-type PaginationContext = {
-  sourceRoot: HTMLDivElement;
-  pagesRoot: HTMLDivElement;
-  signal?: AbortSignal;
-};
-
-export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElement[]> {
-  const { sourceRoot, pagesRoot, signal } = ctx;
+export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HTMLElement[]> {
+  const { sourceRoot, pagesRoot, signal, options } = ctx;
   const pages: HTMLElement[] = [];
 
   if (signal?.aborted) return pages;
@@ -40,8 +36,26 @@ export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElem
   for (const [segmentIndex, segment] of segments.entries()) {
     if (signal?.aborted) return pages;
 
-    const segmentPageSize = getEffectivePageSize(segment);
-    const segmentPageSizePixels = resolvePageSizeInPixels(segmentPageSize);
+    let segmentPageSize = getEffectivePageSize(segment);
+    if (options?.pageSize) {
+      segmentPageSize = resolvePageSize(options.pageSize);
+      segment.dataset.pagedReactPageWidth = segmentPageSize.width;
+      segment.dataset.pagedReactPageHeight = segmentPageSize.height;
+      segment.style.width = segmentPageSize.width;
+      segment.style.minHeight = segmentPageSize.height;
+    }
+
+    if (options?.pageMargins) {
+      segment.style.setProperty("--paged-react-page-margin-top", options.pageMargins.top);
+      segment.style.setProperty("--paged-react-page-margin-right", options.pageMargins.right);
+      segment.style.setProperty("--paged-react-page-margin-bottom", options.pageMargins.bottom);
+      segment.style.setProperty("--paged-react-page-margin-left", options.pageMargins.left);
+      segment.style.boxSizing = "border-box";
+      segment.style.padding =
+        "var(--paged-react-page-margin-top) var(--paged-react-page-margin-right) var(--paged-react-page-margin-bottom) var(--paged-react-page-margin-left)";
+    }
+
+    const segmentPageSizePixels = resolvePageSizeInPixels(segmentPageSize, sourceRoot.ownerDocument);
 
     const headerSlot = getDirectSlot(segment, "header");
     const bodySlot = getDirectSlot(segment, "body");
@@ -54,8 +68,7 @@ export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElem
     const segmentHeightOffset =
       segBox.paddingTop + segBox.paddingBottom + segBox.borderBottomWidth + segBox.borderTopWidth;
 
-    const maxBodyHeight =
-      segmentPageSizePixels.height - headerHeight - footerHeight - segmentHeightOffset;
+    const maxBodyHeight = segmentPageSizePixels.height - headerHeight - footerHeight - segmentHeightOffset;
 
     if (maxBodyHeight <= 0) {
       console.warn(
@@ -64,8 +77,7 @@ export async function paginateDocument(ctx: PaginationContext): Promise<HTMLElem
       continue;
     }
 
-    const repeatTableHeader =
-      segment.getAttribute("data-paged-react-repeat-table-header") === "true";
+    const repeatTableHeader = segment.getAttribute("data-paged-react-repeat-table-header") === "true";
 
     console.time(`Segment ${segmentIndex + 1} pagination`);
 
@@ -120,6 +132,10 @@ async function* bodySegmenter(ctx: {
 
   if (!body) return;
 
+  const view = body.ownerDocument.defaultView;
+  if (!view) return;
+  const ownerWindow: Window & typeof globalThis = view;
+
   const styleCache = createComputedStyleCache();
   const pageBreaks = Array.from(body.querySelectorAll("[data-paged-react-page-break]"));
 
@@ -161,11 +177,10 @@ async function* bodySegmenter(ctx: {
     const { body, bodyRect, mutations, parent = body, superParentOffset = 0 } = ctx;
     const segment = parent.cloneNode(false) as HTMLElement;
     const parentStyle = styleCache.get(parent);
-    const parentOffset =
-      parentStyle.paddingBottom + parentStyle.borderBottomWidth + parentStyle.marginBottom;
+    const parentOffset = parentStyle.paddingBottom + parentStyle.borderBottomWidth + parentStyle.marginBottom;
 
     for (const target of Array.from(parent.childNodes)) {
-      if (target instanceof Element) {
+      if (target instanceof ownerWindow.Element) {
         if (target.hasAttribute("data-paged-react-page-break")) {
           mutations.push(() => target.remove());
           return { segment, stopped: true };
@@ -184,9 +199,7 @@ async function* bodySegmenter(ctx: {
           bodyRect.top;
 
         const isEmptyShell =
-          target.children.length === 0 &&
-          target.textContent !== null &&
-          target.textContent.trim() === "";
+          target.children.length === 0 && target.textContent !== null && target.textContent.trim() === "";
 
         if (isEmptyShell) {
           const targetContentHeight =
@@ -217,13 +230,13 @@ async function* bodySegmenter(ctx: {
           segment.appendChild(target.cloneNode(true));
 
           // Keep table headers on the current page.
-          if (parent instanceof HTMLTableElement && target.tagName === "THEAD") continue;
+          if (parent instanceof ownerWindow.HTMLTableElement && target.tagName === "THEAD") continue;
 
           // Keep the first body row when repeating table headers.
           if (
             repeatTableHeader &&
-            parent instanceof HTMLTableSectionElement &&
-            parent.parentElement instanceof HTMLTableElement &&
+            parent instanceof ownerWindow.HTMLTableSectionElement &&
+            parent.parentElement instanceof ownerWindow.HTMLTableElement &&
             !parent.parentElement.tHead &&
             target === parent.rows[0]
           ) {
@@ -248,26 +261,21 @@ async function* bodySegmenter(ctx: {
           if (segment.childNodes.length) return { segment, stopped: true };
 
           const targetRequiredPageHeight =
-            targetRect.height +
-            Math.max(0, targetStyle.marginTop) +
-            Math.max(0, targetStyle.marginBottom);
+            targetRect.height + Math.max(0, targetStyle.marginTop) + Math.max(0, targetStyle.marginBottom);
 
           if (targetRequiredPageHeight <= maxBodyHeight && mutations.length > 0) {
             return { segment, stopped: true };
           }
 
-          console.error(
-            "Paged React: unbreakable element exceeds one page and will be clipped.",
-            target,
-          );
+          console.error("Paged React: unbreakable element exceeds one page and will be clipped.", target);
 
           segment.appendChild(target.cloneNode(true));
           mutations.push(() => target.remove());
         }
       }
 
-      if (target instanceof Text) {
-        const textRange = document.createRange();
+      if (target instanceof ownerWindow.Text) {
+        const textRange = body.ownerDocument.createRange();
         textRange.selectNode(target);
         const textRects = Array.from(textRange.getClientRects());
 
@@ -301,7 +309,7 @@ async function* bodySegmenter(ctx: {
 
         // Split text across the page boundary line by line.
         const lines = textBreaker(target, textRects);
-        const remaining = document.createDocumentFragment();
+        const remaining = body.ownerDocument.createDocumentFragment();
 
         for (const line of lines) {
           const lineBottom = line.rect.bottom + parentOffset + superParentOffset - bodyRect.top;
@@ -320,38 +328,30 @@ async function* bodySegmenter(ctx: {
     return { segment, stopped: false };
   }
 
-  function cleanupPaginationTarget(
-    target: Element,
-    parent: HTMLElement,
-    repeatTableHeader: boolean,
-  ) {
-    if (target.tagName === "LI" && parent instanceof HTMLOListElement) {
+  function cleanupPaginationTarget(target: Element, parent: HTMLElement, repeatTableHeader: boolean) {
+    if (target.tagName === "LI" && parent instanceof ownerWindow.HTMLOListElement) {
       if (parent.reversed) parent.start -= 1;
       else parent.start += 1;
     }
 
     target.remove();
 
-    if (
-      parent.children.length === 0 &&
-      parent.textContent !== null &&
-      parent.textContent.trim() === ""
-    ) {
+    if (parent.children.length === 0 && parent.textContent !== null && parent.textContent.trim() === "") {
       parent.setAttribute(EMPTY_BY_PAGINATION_ATTRIBUTE, "");
     }
 
-    if (parent instanceof HTMLTableSectionElement) {
+    if (parent instanceof ownerWindow.HTMLTableSectionElement) {
       const table = parent.parentElement;
       if (parent.rows.length === 0) parent.remove();
       if (
         repeatTableHeader &&
-        table instanceof HTMLTableElement &&
+        table instanceof ownerWindow.HTMLTableElement &&
         !table.tHead &&
         parent.rows.length === 1
       ) {
         parent.remove();
       }
-      if (table instanceof HTMLTableElement && !table.tBodies.length) table.remove();
+      if (table instanceof ownerWindow.HTMLTableElement && !table.tBodies.length) table.remove();
     }
   }
 }

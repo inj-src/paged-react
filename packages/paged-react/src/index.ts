@@ -1,12 +1,6 @@
 import "./styles.css";
 
-export {
-  Document,
-  DocumentBody,
-  DocumentFooter,
-  DocumentHeader,
-  DocumentSegment,
-} from "./components/document.js";
+export { Document, DocumentBody, DocumentFooter, DocumentHeader, DocumentSegment } from "./components/document.js";
 export { paginateDocument } from "./core/paginate.js";
 export { PageBreak } from "./components/page-break.js";
 export { Watermark } from "./components/watermark.js";
@@ -17,8 +11,11 @@ export type {
   DocumentHeaderProps,
   DocumentProps,
   DocumentSegmentProps,
+  PaginateDocumentContext,
+  PageMargins,
   PageSize,
   PageSizeName,
   PageSizeValue,
+  PaginationOptions,
   SlotProps,
 } from "./types.js";

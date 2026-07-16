@@ -117,4 +117,85 @@ describe("paginateDocument", () => {
     expect(pages[0].querySelectorAll("tbody tr")).toHaveLength(0);
     expect(pages[1].querySelectorAll("tbody tr")).toHaveLength(1);
   });
+
+  it("overrides page size and margins for generated pages", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const content = document.createElement("p");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+    content.setAttribute("data-test-height", "20");
+    body.append(content);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({
+      sourceRoot,
+      pagesRoot,
+      options: {
+        pageSize: { width: "50px", height: "60px" },
+        pageMargins: {
+          top: "4px",
+          right: "5px",
+          bottom: "6px",
+          left: "7px",
+        },
+      },
+    });
+
+    expect(pages).toHaveLength(1);
+    expect(pages[0].style.width).toBe("50px");
+    expect(pages[0].style.height).toBe("60px");
+    expect(pages[0].style.getPropertyValue("--paged-react-page-margin-top")).toBe("4px");
+    expect(pages[0].style.getPropertyValue("--paged-react-page-margin-left")).toBe("7px");
+  });
+
+  it("paginates elements owned by an iframe document", async () => {
+    const iframe = document.createElement("iframe");
+    document.body.append(iframe);
+
+    const frameDocument = iframe.contentDocument;
+    const frameWindow = iframe.contentWindow;
+    expect(frameDocument).not.toBeNull();
+    expect(frameWindow).not.toBeNull();
+    if (!frameDocument || !frameWindow) {
+      return;
+    }
+
+    const sourceRoot = frameDocument.createElement("div");
+    const pagesRoot = frameDocument.createElement("div");
+    const segment = frameDocument.createElement("div");
+    const body = frameDocument.createElement("div");
+    const first = frameDocument.createElement("p");
+    const second = frameDocument.createElement("p");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "50px");
+    body.setAttribute("data-paged-react-body-source", "");
+    first.setAttribute("data-test-height", "30");
+    second.setAttribute("data-test-height", "30");
+    body.append(first, second);
+    segment.append(body);
+    sourceRoot.append(segment);
+    frameDocument.body.append(sourceRoot, pagesRoot);
+
+    Object.defineProperty(frameDocument, "fonts", {
+      configurable: true,
+      value: { ready: Promise.resolve() },
+    });
+    frameWindow.HTMLElement.prototype.getBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages).toHaveLength(2);
+    expect(pages[0].ownerDocument).toBe(frameDocument);
+    expect(pages[1].ownerDocument).toBe(frameDocument);
+  });
 });

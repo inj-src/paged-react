@@ -25,6 +25,25 @@ export type PageSizeValue = {
 
 export type PageSize = PageSizeName | PageSizeValue;
 
+export type PageMargins = {
+  top: string;
+  right: string;
+  bottom: string;
+  left: string;
+};
+
+export type PaginationOptions = {
+  pageSize?: PageSize;
+  pageMargins?: PageMargins;
+};
+
+export type PaginateDocumentContext = {
+  sourceRoot: HTMLDivElement;
+  pagesRoot: HTMLDivElement;
+  signal?: AbortSignal;
+  options?: PaginationOptions;
+};
+
 export type SlotProps = ComponentPropsWithoutRef<"div">;
 
 export type DocumentProps = SlotProps & {
@@ -37,6 +56,7 @@ export type DocumentProps = SlotProps & {
 export type DocumentSegmentProps = SlotProps & {
   children: ReactNode;
   pageSize: PageSize;
+  pageMargins?: PageMargins;
   repeatTableHeader?: boolean;
 };
 

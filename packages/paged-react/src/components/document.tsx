@@ -17,39 +17,54 @@ type DocumentComponent = ReturnType<typeof forwardRef<HTMLDivElement, DocumentPr
   Footer: typeof DocumentFooter;
 };
 
-export const DocumentSegment = forwardRef<HTMLDivElement, DocumentSegmentProps>(
-  function DocumentSegment({ children, pageSize, repeatTableHeader, style, ...props }, ref) {
-    const resolvedPageSize = resolvePageSize(pageSize);
+export const DocumentSegment = forwardRef<HTMLDivElement, DocumentSegmentProps>(function DocumentSegment(
+  { children, pageSize, pageMargins, repeatTableHeader, style, ...props },
+  ref,
+) {
+  const resolvedPageSize = resolvePageSize(pageSize);
+  const segmentStyle = { ...style };
 
-    return (
-      <div
-        {...props}
-        ref={ref}
-        data-paged-react-repeat-table-header={String(repeatTableHeader === true)}
-        data-paged-react-page-height={resolvedPageSize.height}
-        data-paged-react-page-width={resolvedPageSize.width}
-        data-paged-react-segment-source=""
-        style={{
-          ...style,
-          minHeight: resolvedPageSize.height,
-          width: resolvedPageSize.width,
-        }}
-      >
-        {children}
-      </div>
-    );
-  },
-);
+  if (pageMargins) {
+    Object.assign(segmentStyle, {
+      "--paged-react-page-margin-top": pageMargins.top,
+      "--paged-react-page-margin-right": pageMargins.right,
+      "--paged-react-page-margin-bottom": pageMargins.bottom,
+      "--paged-react-page-margin-left": pageMargins.left,
+      boxSizing: "border-box",
+      padding:
+        "var(--paged-react-page-margin-top) var(--paged-react-page-margin-right) var(--paged-react-page-margin-bottom) var(--paged-react-page-margin-left)",
+    });
+  }
 
-export const DocumentHeader = forwardRef<HTMLDivElement, DocumentHeaderProps>(
-  function DocumentHeader({ children, ...props }, ref) {
-    return (
-      <div {...props} ref={ref} data-paged-react-header-source="">
-        {children}
-      </div>
-    );
-  },
-);
+  return (
+    <div
+      {...props}
+      ref={ref}
+      data-paged-react-repeat-table-header={String(repeatTableHeader === true)}
+      data-paged-react-page-height={resolvedPageSize.height}
+      data-paged-react-page-width={resolvedPageSize.width}
+      data-paged-react-segment-source=""
+      style={{
+        ...segmentStyle,
+        minHeight: resolvedPageSize.height,
+        width: resolvedPageSize.width,
+      }}
+    >
+      {children}
+    </div>
+  );
+});
+
+export const DocumentHeader = forwardRef<HTMLDivElement, DocumentHeaderProps>(function DocumentHeader(
+  { children, ...props },
+  ref,
+) {
+  return (
+    <div {...props} ref={ref} data-paged-react-header-source="">
+      {children}
+    </div>
+  );
+});
 
 export const DocumentBody = forwardRef<HTMLDivElement, DocumentBodyProps>(function DocumentBody(
   { children, ...props },
@@ -62,15 +77,16 @@ export const DocumentBody = forwardRef<HTMLDivElement, DocumentBodyProps>(functi
   );
 });
 
-export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(
-  function DocumentFooter({ children, ...props }, ref) {
-    return (
-      <div {...props} ref={ref} data-paged-react-footer-source="">
-        {children}
-      </div>
-    );
-  },
-);
+export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(function DocumentFooter(
+  { children, ...props },
+  ref,
+) {
+  return (
+    <div {...props} ref={ref} data-paged-react-footer-source="">
+      {children}
+    </div>
+  );
+});
 
 const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document(
   { children, afterPaginate, paginate = true, doNotHideSource = false, ...props },
@@ -129,11 +145,7 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
     <context.Provider value={{ pages }}>
       <div style={{ display: "contents" }}>
         <div data-paged-react-pages ref={mergedRef} {...props} />
-        <div
-          data-paged-react-source
-          data-paged-react-source-hidden={String(!doNotHideSource)}
-          ref={sourceRef}
-        >
+        <div data-paged-react-source data-paged-react-source-hidden={String(!doNotHideSource)} ref={sourceRef}>
           {children}
         </div>
       </div>

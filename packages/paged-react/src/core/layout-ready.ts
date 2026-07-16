@@ -20,10 +20,18 @@ async function waitForImages(root: HTMLElement) {
 }
 
 export async function waitForLayoutReady(root: HTMLElement) {
-  if (document.fonts && "ready" in document.fonts) {
-    await document.fonts.ready;
+  const ownerDocument = root.ownerDocument;
+  if (ownerDocument.fonts && "ready" in ownerDocument.fonts) {
+    await ownerDocument.fonts.ready;
   }
 
   await waitForImages(root);
-  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  const view = ownerDocument.defaultView;
+  if (!view) {
+    return;
+  }
+  if (!view.requestAnimationFrame) {
+    return;
+  }
+  await new Promise<void>((resolve) => view.requestAnimationFrame(() => resolve()));
 }

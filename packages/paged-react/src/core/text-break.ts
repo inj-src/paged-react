@@ -10,7 +10,7 @@ export function textBreaker(textNode: Text, lineRects: DOMRect[]) {
       return cachedRect;
     }
 
-    const charRange = document.createRange();
+    const charRange = textNode.ownerDocument.createRange();
     charRange.setStart(textNode, index);
     charRange.setEnd(textNode, index + 1);
 

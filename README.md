@@ -50,6 +50,42 @@ export function Report() {
 </Document.Segment>
 ```
 
+Set page content margins with `pageMargins`. Margins are applied before pagination, so page
+breaks account for the reduced body area.
+
+```tsx
+<Document.Segment
+  pageSize={pageSizes.A4}
+  pageMargins={{ top: "10mm", right: "8mm", bottom: "10mm", left: "8mm" }}
+>
+  {/* header, body, and footer */}
+</Document.Segment>
+```
+
+For an existing document DOM, call `paginateDocument` with runtime overrides. This is useful
+for print previews that let users change paper size or margins after the React document has
+rendered, including documents hosted in an iframe.
+
+```ts
+import { paginateDocument } from "paged-react";
+
+await paginateDocument({
+  sourceRoot,
+  pagesRoot,
+  options: {
+    pageSize: { width: "148mm", height: "210mm" },
+    pageMargins: {
+      top: "5mm",
+      right: "5mm",
+      bottom: "5mm",
+      left: "5mm",
+    },
+  },
+});
+```
+
+Runtime options override the corresponding `Document.Segment` values for that pagination run.
+
 ## Printing
 
 `paged-react` creates the paginated DOM. Use `react-to-print` to open the browser print dialog.
