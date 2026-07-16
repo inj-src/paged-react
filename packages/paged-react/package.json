@@ -52,6 +52,7 @@
     "@chenglou/pretext": "^0.0.6"
   },
   "devDependencies": {
+    "cross-spawn": "^7.0.6",
     "@eslint/js": "^10.0.1",
     "@repo/typescript-config": "workspace:*",
     "@types/react": "^19.2.14",
