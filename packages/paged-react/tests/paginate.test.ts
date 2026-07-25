@@ -19,6 +19,12 @@ function parsePx(value: string) {
 }
 
 function getElementHeight(element: Element): number {
+  const scopedHeight = element.getAttribute("data-test-scoped-height");
+
+  if (scopedHeight && element.closest(".extension-root")) {
+    return Number.parseFloat(scopedHeight);
+  }
+
   const explicitHeight = element.getAttribute("data-test-height");
 
   if (explicitHeight) {
@@ -197,5 +203,42 @@ describe("paginateDocument", () => {
     expect(pages).toHaveLength(2);
     expect(pages[0].ownerDocument).toBe(frameDocument);
     expect(pages[1].ownerDocument).toBe(frameDocument);
+  });
+
+  it("preserves ancestor-scoped styles while measuring pagination", async () => {
+    const styleRoot = document.createElement("div");
+    const documentRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const sourceRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const first = document.createElement("p");
+    const second = document.createElement("p");
+
+    styleRoot.className = "extension-root";
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+    first.setAttribute("data-test-height", "20");
+    first.setAttribute("data-test-scoped-height", "60");
+    first.style.breakInside = "avoid";
+    first.textContent = "First";
+    second.setAttribute("data-test-height", "20");
+    second.setAttribute("data-test-scoped-height", "60");
+    second.style.breakInside = "avoid";
+    second.textContent = "Second";
+    body.append(first, second);
+    segment.append(body);
+    sourceRoot.append(segment);
+    documentRoot.append(pagesRoot, sourceRoot);
+    styleRoot.append(documentRoot);
+    document.body.append(styleRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages).toHaveLength(2);
+    expect(pages[0].textContent).toBe("First");
+    expect(pages[1].textContent).toBe("Second");
   });
 });

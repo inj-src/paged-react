@@ -114,10 +114,14 @@ export function createPage({
 
 export function connectedClone(element: HTMLElement) {
   const clone = element.cloneNode(true) as HTMLElement;
+  const parent = element.parentElement;
+  if (!parent) {
+    throw new Error("Paged React requires the source root to be connected.");
+  }
   clone.style.left = "-100000px";
   clone.style.position = "absolute";
   clone.style.top = "0";
-  element.ownerDocument.body.appendChild(clone);
+  parent.appendChild(clone);
   return clone;
 }
 
