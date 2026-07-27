@@ -19,6 +19,12 @@ function parsePx(value: string) {
 }
 
 function getElementHeight(element: Element): number {
+  const generatedHeight = element.getAttribute("data-test-generated-height");
+
+  if (generatedHeight && element.closest("[data-paged-react-page-body]")) {
+    return Number.parseFloat(generatedHeight);
+  }
+
   const scopedHeight = element.getAttribute("data-test-scoped-height");
 
   if (scopedHeight && element.closest(".extension-root")) {
@@ -31,7 +37,32 @@ function getElementHeight(element: Element): number {
     return Number.parseFloat(explicitHeight);
   }
 
-  return Array.from(element.children).reduce((sum, child) => sum + getElementHeight(child), 0);
+  const childHeights = Array.from(element.children, (child) => getElementHeight(child));
+
+  if (
+    element instanceof HTMLElement &&
+    element.style.display === "flex" &&
+    element.style.flexDirection !== "column" &&
+    element.style.flexDirection !== "column-reverse"
+  ) {
+    return Math.max(0, ...childHeights);
+  }
+
+  return childHeights.reduce((sum, height) => sum + height, 0);
+}
+
+function getElementRectHeight(element: Element): number {
+  const pageHeight = element.getAttribute("data-test-page-height");
+
+  if (pageHeight && element.hasAttribute("data-paged-react-page-body")) {
+    return Number.parseFloat(pageHeight);
+  }
+
+  if (element instanceof HTMLElement && element.style.display === "contents") {
+    return 0;
+  }
+
+  return getElementHeight(element);
 }
 
 function getElementTop(element: Element): number {
@@ -41,9 +72,17 @@ function getElementTop(element: Element): number {
     return 0;
   }
 
-  const siblingTop = Array.from(parent.children)
-    .slice(0, Array.from(parent.children).indexOf(element))
-    .reduce((sum, sibling) => sum + getElementHeight(sibling), 0);
+  let siblingTop = 0;
+  if (
+    !(parent instanceof HTMLElement) ||
+    parent.style.display !== "flex" ||
+    parent.style.flexDirection === "column" ||
+    parent.style.flexDirection === "column-reverse"
+  ) {
+    siblingTop = Array.from(parent.children)
+      .slice(0, Array.from(parent.children).indexOf(element))
+      .reduce((sum, sibling) => sum + getElementHeight(sibling), 0);
+  }
 
   return getElementTop(parent) + siblingTop;
 }
@@ -70,10 +109,17 @@ describe("paginateDocument", () => {
       }
 
       return rectFrom({
-        height: getElementHeight(this),
+        height: getElementRectHeight(this),
         top: getElementTop(this),
       });
     };
+
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function clientHeight() {
+      return getElementRectHeight(this);
+    });
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function scrollHeight() {
+      return Array.from(this.children).reduce((sum, child) => sum + getElementHeight(child), 0);
+    });
   });
 
   afterEach(() => {
@@ -240,5 +286,88 @@ describe("paginateDocument", () => {
     expect(pages).toHaveLength(2);
     expect(pages[0].textContent).toBe("First");
     expect(pages[1].textContent).toBe("Second");
+  });
+
+  it("continues paginating sibling columns when one flex column stops", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const columns = document.createElement("section");
+    const left = document.createElement("div");
+    const right = document.createElement("div");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+    columns.style.display = "flex";
+
+    for (const [column, prefix] of [
+      [left, "Left"],
+      [right, "Right"],
+    ] as const) {
+      for (const index of [1, 2]) {
+        const item = document.createElement("p");
+        item.setAttribute("data-test-height", "60");
+        item.style.breakInside = "avoid";
+        item.textContent = `${prefix} ${index}`;
+        column.append(item);
+      }
+    }
+
+    columns.append(left, right);
+    body.append(columns);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages).toHaveLength(2);
+    expect(pages[0].textContent).toBe("Left 1Right 1");
+    expect(pages[1].textContent).toBe("Left 2Right 2");
+  });
+
+  it("paginates children rendered through display contents wrappers", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const wrapper = document.createElement("div");
+    const first = document.createElement("p");
+    const second = document.createElement("p");
+    const third = document.createElement("p");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+    body.setAttribute("data-test-page-height", "100");
+    wrapper.style.display = "contents";
+    first.setAttribute("data-test-height", "45");
+    first.setAttribute("data-test-generated-height", "55");
+    first.style.breakInside = "avoid";
+    first.textContent = "First";
+    second.setAttribute("data-test-height", "45");
+    second.setAttribute("data-test-generated-height", "55");
+    second.style.breakInside = "avoid";
+    second.textContent = "Second";
+    third.setAttribute("data-test-height", "45");
+    third.setAttribute("data-test-generated-height", "55");
+    third.style.breakInside = "avoid";
+    third.textContent = "Third";
+    wrapper.append(first, second, third);
+    body.append(wrapper);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages).toHaveLength(3);
+    expect(pages[0].textContent).toBe("First");
+    expect(pages[1].textContent).toBe("Second");
+    expect(pages[2].textContent).toBe("Third");
   });
 });

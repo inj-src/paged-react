@@ -3,6 +3,8 @@ import { getBoxStyle } from "./utils.js";
 export type BoxStyle = {
   borderTopWidth: number;
   borderBottomWidth: number;
+  display: string;
+  flexDirection: string;
   marginTop: number;
   marginBottom: number;
   paddingTop: number;

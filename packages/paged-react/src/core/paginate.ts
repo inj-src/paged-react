@@ -68,9 +68,10 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
     const segmentHeightOffset =
       segBox.paddingTop + segBox.paddingBottom + segBox.borderBottomWidth + segBox.borderTopWidth;
 
-    const maxBodyHeight = segmentPageSizePixels.height - headerHeight - footerHeight - segmentHeightOffset;
+    const calculatedMaxBodyHeight =
+      segmentPageSizePixels.height - headerHeight - footerHeight - segmentHeightOffset;
 
-    if (maxBodyHeight <= 0) {
+    if (calculatedMaxBodyHeight <= 0) {
       console.warn(
         `Page size ${segmentPageSize.width} x ${segmentPageSize.height} is too small to fit header and footer content.`,
       );
@@ -78,12 +79,36 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
     }
 
     const repeatTableHeader = segment.getAttribute("data-paged-react-repeat-table-header") === "true";
+    const measurementPage = createPage({
+      segment,
+      pagesRoot,
+      pageSize: segmentPageSize,
+      bodySlot,
+      headerSlot,
+      footerSlot,
+      pageNumber: segmentIndex + 1,
+    });
+    measurementPage.page.style.left = "-100000px";
+    measurementPage.page.style.position = "absolute";
+    measurementPage.page.style.top = "0";
+    measurementPage.page.style.visibility = "hidden";
+    cloneChildrenInto(measurementPage.header, headerSlot);
+    cloneChildrenInto(measurementPage.footer, footerSlot);
+
+    let maxBodyHeight = measurementPage.body.getBoundingClientRect().height;
+    let measurementBody: HTMLElement | null = measurementPage.body;
+    if (maxBodyHeight <= 0) {
+      maxBodyHeight = calculatedMaxBodyHeight;
+      measurementPage.page.remove();
+      measurementBody = null;
+    }
 
     console.time(`Segment ${segmentIndex + 1} pagination`);
 
     const bodyPayload = {
       body: bodySlot,
       maxBodyHeight,
+      measurementBody,
       repeatTableHeader,
       signal,
     };
@@ -91,6 +116,7 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
     let bodyIndex = 0;
     for await (const bodySegment of bodySegmenter(bodyPayload)) {
       if (signal?.aborted) {
+        measurementPage.page.remove();
         console.timeEnd(`Segment ${segmentIndex + 1} pagination`);
         return pages;
       }
@@ -115,6 +141,7 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
 
       bodyIndex += 1;
     }
+    measurementPage.page.remove();
     console.timeEnd(`Segment ${segmentIndex + 1} pagination`);
   }
 
@@ -125,10 +152,11 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
 async function* bodySegmenter(ctx: {
   body: HTMLElement | null;
   maxBodyHeight: number;
+  measurementBody: HTMLElement | null;
   repeatTableHeader: boolean;
   signal?: AbortSignal;
 }): AsyncGenerator<HTMLElement> {
-  const { body, maxBodyHeight, repeatTableHeader, signal } = ctx;
+  const { body, maxBodyHeight, measurementBody, repeatTableHeader, signal } = ctx;
 
   if (!body) return;
 
@@ -138,22 +166,62 @@ async function* bodySegmenter(ctx: {
 
   const styleCache = createComputedStyleCache();
   const pageBreaks = Array.from(body.querySelectorAll("[data-paged-react-page-break]"));
+  let sliceMaxBodyHeight = maxBodyHeight;
 
   while (true) {
     if (signal?.aborted) return;
+    sliceMaxBodyHeight = maxBodyHeight;
 
     const bodyRect = body.getBoundingClientRect();
     const bodyHeight = bodyRect.height;
     const hasPageBreak = pageBreaks.some((pageBreak) => body.contains(pageBreak));
 
     if (bodyHeight <= maxBodyHeight && !hasPageBreak) {
-      yield body;
-      return;
+      if (measurementBody) {
+        cloneChildrenInto(measurementBody, body);
+        const bodyFits = measurementBody.scrollHeight <= measurementBody.clientHeight;
+        measurementBody.replaceChildren();
+        if (bodyFits) {
+          yield body;
+          return;
+        }
+      } else {
+        yield body;
+        return;
+      }
     }
 
-    const mutations: Array<() => void> = [];
-    const pageSlice = bodySlice({ body, bodyRect, mutations });
-    yield pageSlice.segment;
+    let mutations: Array<() => void>;
+    let pageSlice: HTMLElement;
+
+    while (true) {
+      const candidateMutations: Array<() => void> = [];
+      const candidate = bodySlice({ body, bodyRect, mutations: candidateMutations });
+
+      if (!measurementBody) {
+        mutations = candidateMutations;
+        pageSlice = candidate.segment;
+        break;
+      }
+
+      measurementBody.replaceChildren(candidate.segment);
+      const overflow = measurementBody.scrollHeight - measurementBody.clientHeight;
+      candidate.segment.remove();
+
+      mutations = candidateMutations;
+      pageSlice = candidate.segment;
+
+      if (overflow <= 0 || !mutations.length) {
+        break;
+      }
+
+      let correction = Math.ceil(overflow);
+      if (correction < 1) correction = 1;
+      sliceMaxBodyHeight -= correction;
+      if (sliceMaxBodyHeight <= 0) break;
+    }
+
+    yield pageSlice;
 
     if (!mutations.length) {
       return;
@@ -173,9 +241,11 @@ async function* bodySegmenter(ctx: {
     mutations: Array<() => void>;
     parent?: HTMLElement;
     superParentOffset?: number;
-  }): { segment: HTMLElement; stopped: boolean } {
+  }): { consumed: boolean; segment: HTMLElement; stopped: boolean } {
     const { body, bodyRect, mutations, parent = body, superParentOffset = 0 } = ctx;
     const segment = parent.cloneNode(false) as HTMLElement;
+    let consumed = false;
+    let stopped = false;
     const parentStyle = styleCache.get(parent);
     const parentOffset = parentStyle.paddingBottom + parentStyle.borderBottomWidth + parentStyle.marginBottom;
 
@@ -183,7 +253,7 @@ async function* bodySegmenter(ctx: {
       if (target instanceof ownerWindow.Element) {
         if (target.hasAttribute("data-paged-react-page-break")) {
           mutations.push(() => target.remove());
-          return { segment, stopped: true };
+          return { consumed, segment, stopped: true };
         }
 
         const targetRect = target.getBoundingClientRect();
@@ -215,8 +285,9 @@ async function* bodySegmenter(ctx: {
           }
 
           segment.appendChild(target.cloneNode(true));
-          if (targetBottom <= maxBodyHeight) {
+          if (targetBottom <= sliceMaxBodyHeight) {
             mutations.push(() => target.remove());
+            consumed = true;
           }
 
           continue;
@@ -225,7 +296,11 @@ async function* bodySegmenter(ctx: {
         const canBreakTarget = canBreakElement(target);
         const hasNestedPageBreak = pageBreaks.some((pageBreak) => target.contains(pageBreak));
 
-        if (targetBottom <= maxBodyHeight && !hasNestedPageBreak) {
+        if (
+          targetBottom <= sliceMaxBodyHeight &&
+          !hasNestedPageBreak &&
+          targetStyle.display !== "contents"
+        ) {
           // Keep pagination-created empty shells that still have box height.
           segment.appendChild(target.cloneNode(true));
 
@@ -247,6 +322,7 @@ async function* bodySegmenter(ctx: {
             // Remove the source node after cloning it into the page.
             cleanupPaginationTarget(target, parent, repeatTableHeader);
           });
+          consumed = true;
         } else if (canBreakTarget) {
           const childSegment = bodySlice({
             body,
@@ -255,22 +331,36 @@ async function* bodySegmenter(ctx: {
             parent: target as HTMLElement,
             superParentOffset: parentOffset + superParentOffset,
           });
-          if (childSegment.segment.childNodes.length) segment.appendChild(childSegment.segment);
-          if (childSegment.stopped) return { segment, stopped: true };
+          if (childSegment.segment.childNodes.length && childSegment.consumed) {
+            segment.appendChild(childSegment.segment);
+            consumed = true;
+          }
+          if (childSegment.stopped) {
+            if (
+              (parentStyle.display === "flex" || parentStyle.display === "inline-flex") &&
+              parentStyle.flexDirection !== "column" &&
+              parentStyle.flexDirection !== "column-reverse"
+            ) {
+              stopped = true;
+              continue;
+            }
+            return { consumed, segment, stopped: true };
+          }
         } else {
-          if (segment.childNodes.length) return { segment, stopped: true };
+          if (consumed) return { consumed, segment, stopped: true };
 
           const targetRequiredPageHeight =
             targetRect.height + Math.max(0, targetStyle.marginTop) + Math.max(0, targetStyle.marginBottom);
 
           if (targetRequiredPageHeight <= maxBodyHeight && mutations.length > 0) {
-            return { segment, stopped: true };
+            return { consumed, segment, stopped: true };
           }
 
           console.error("Paged React: unbreakable element exceeds one page and will be clipped.", target);
 
           segment.appendChild(target.cloneNode(true));
           mutations.push(() => target.remove());
+          consumed = true;
         }
       }
 
@@ -298,14 +388,15 @@ async function* bodySegmenter(ctx: {
         }
 
         // Keep text that fully fits on the current page.
-        if (textBottom <= maxBodyHeight) {
+        if (textBottom <= sliceMaxBodyHeight) {
           segment.append(target.data);
           mutations.push(() => target.remove());
+          consumed = true;
           continue;
         }
 
         // Leave text alone if it starts below the current page window.
-        if (textTop > maxBodyHeight) continue;
+        if (textTop > sliceMaxBodyHeight) continue;
 
         // Split text across the page boundary line by line.
         const lines = textBreaker(target, textRects);
@@ -314,8 +405,9 @@ async function* bodySegmenter(ctx: {
         for (const line of lines) {
           const lineBottom = line.rect.bottom + parentOffset + superParentOffset - bodyRect.top;
 
-          if (lineBottom <= maxBodyHeight) {
+          if (lineBottom <= sliceMaxBodyHeight) {
             segment.append(line.text);
+            consumed = true;
           } else {
             remaining.append(line.text);
           }
@@ -325,7 +417,7 @@ async function* bodySegmenter(ctx: {
       }
     }
 
-    return { segment, stopped: false };
+    return { consumed, segment, stopped };
   }
 
   function cleanupPaginationTarget(target: Element, parent: HTMLElement, repeatTableHeader: boolean) {
