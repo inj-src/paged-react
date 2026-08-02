@@ -148,6 +148,19 @@ The package CSS handles the document structure. Add this optional CSS in your ap
 
 Slots accept normal `div` props such as `className`, `style`, `id`, `data-*`, and `aria-*`.
 
+## PDF export
+
+`exportPdf` paginates the same browser layout and returns PDF bytes from the internal page IR:
+
+```ts
+import { exportPdf } from "paged-react";
+
+const bytes = await exportPdf({ sourceRoot, pagesRoot });
+const blob = new Blob([bytes], { type: "application/pdf" });
+```
+
+The first PDF writer supports page geometry, text, solid backgrounds, borders, and PNG/JPEG images. It uses standard PDF fonts, so custom font embedding and advanced CSS paint are future additions. PDF coordinates are derived from the final browser layout; the writer does not paginate independently.
+
 ## Watermark
 
 Use `Watermark` inside `Document`. It receives a render function with the current zero-based `pageIndex` and the generated `pages` array. The `Watermark` component gets copied over and rendered to every-single page.
@@ -186,11 +199,11 @@ If a table has a `<thead>`, the first table fragment keeps that header even when
 
 ## Page Breaks
 
-Use `PageBreak` for an explicit new page. This is the supported way to force a page break.
+Use `PageBreak` or the supported CSS break directives for an explicit new page.
 
-`page-break-inside: avoid` is supported as a keep-together hint. Use it when a block should move to the next page instead of being split across pages.
+`break-before: page`, `break-after: page`, and their `always` values are supported, as are the legacy `page-break-before: always` and `page-break-after: always` declarations. `break-inside: avoid` and `page-break-inside: avoid` are supported as keep-together hints. If an avoided block is taller than a page, its breakable descendants may still be split.
 
-`break-before`, `page-break-before`, `break-after`, and `page-break-after` are intentionally ignored. Use `PageBreak` so there is only one explicit way to force a new page.
+Recto/verso, named pages, columns, and widow/orphan controls are not part of this first supported subset.
 
 ## Limitations
 

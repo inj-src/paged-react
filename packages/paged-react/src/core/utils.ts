@@ -134,6 +134,12 @@ export function getBoxStyle(element: Element) {
   return {
     borderBottomWidth: parseFloat(computedStyle.borderBottomWidth) || 0,
     borderTopWidth: parseFloat(computedStyle.borderTopWidth) || 0,
+    breakBefore: computedStyle.breakBefore,
+    breakAfter: computedStyle.breakAfter,
+    breakInside: computedStyle.breakInside,
+    pageBreakBefore: computedStyle.pageBreakBefore,
+    pageBreakAfter: computedStyle.pageBreakAfter,
+    pageBreakInside: computedStyle.pageBreakInside,
     display: computedStyle.display,
     flexDirection: computedStyle.flexDirection,
     marginBottom: parseFloat(computedStyle.marginBottom) || 0,

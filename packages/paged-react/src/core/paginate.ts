@@ -4,6 +4,12 @@ import { createComputedStyleCache } from "./computed-style.js";
 import { waitForLayoutReady } from "./layout-ready.js";
 import { connectedClone, getBoxStyle } from "./utils.js";
 import { resolvePageSize } from "../utils/page-size.js";
+import {
+  buildPaginatedDocumentIR,
+  clearSourceIds,
+  markSourceIds,
+  type PaginatedDocumentIR,
+} from "./ir.js";
 import type { PaginateDocumentContext } from "../types.js";
 import {
   cloneChildrenInto,
@@ -15,7 +21,7 @@ import {
 
 const EMPTY_BY_PAGINATION_ATTRIBUTE = "data-paged-react-empty-by-pagination";
 
-export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HTMLElement[]> {
+async function paginateDocumentDom(ctx: PaginateDocumentContext, includeIR: boolean): Promise<HTMLElement[]> {
   const { sourceRoot, pagesRoot, signal, options } = ctx;
   const pages: HTMLElement[] = [];
 
@@ -28,6 +34,9 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
   if (signal?.aborted) return pages;
 
   const sourceRootClone = connectedClone(sourceRoot);
+  if (includeIR) {
+    markSourceIds(sourceRootClone);
+  }
 
   const segments = Array.from(
     sourceRootClone.querySelectorAll(":scope > [data-paged-react-segment-source]"),
@@ -149,6 +158,25 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
   return pages;
 }
 
+export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HTMLElement[]> {
+  return paginateDocumentDom(ctx, false);
+}
+
+export async function paginateDocumentIR(ctx: PaginateDocumentContext): Promise<{
+  pages: HTMLElement[];
+  ir: PaginatedDocumentIR;
+}> {
+  const pages = await paginateDocumentDom(ctx, true);
+  if (ctx.signal?.aborted) {
+    return { pages, ir: { pages: [] } };
+  }
+
+  await waitForLayoutReady(ctx.pagesRoot);
+  const ir = buildPaginatedDocumentIR(pages);
+  clearSourceIds(pages);
+  return { pages, ir };
+}
+
 async function* bodySegmenter(ctx: {
   body: HTMLElement | null;
   maxBodyHeight: number;
@@ -174,7 +202,13 @@ async function* bodySegmenter(ctx: {
 
     const bodyRect = body.getBoundingClientRect();
     const bodyHeight = bodyRect.height;
-    const hasPageBreak = pageBreaks.some((pageBreak) => body.contains(pageBreak));
+    const hasMarkerPageBreak = pageBreaks.some((pageBreak) => body.contains(pageBreak));
+    const hasStylePageBreak = Array.from(body.querySelectorAll("*"), (element) => styleCache.get(element)).some((style) =>
+      [style.breakBefore, style.breakAfter, style.pageBreakBefore, style.pageBreakAfter].some((value) =>
+        ["page", "always"].includes(value),
+      ),
+    );
+    const hasPageBreak = [hasMarkerPageBreak, hasStylePageBreak].some(Boolean);
 
     if (bodyHeight <= maxBodyHeight && !hasPageBreak) {
       if (measurementBody) {
@@ -258,6 +292,16 @@ async function* bodySegmenter(ctx: {
 
         const targetRect = target.getBoundingClientRect();
         const targetStyle = styleCache.get(target);
+        const breakBefore = [targetStyle.breakBefore, targetStyle.pageBreakBefore].some((value) =>
+          ["page", "always"].includes(value),
+        );
+        const breakAfter = [targetStyle.breakAfter, targetStyle.pageBreakAfter].some((value) =>
+          ["page", "always"].includes(value),
+        );
+
+        if (breakBefore && consumed) {
+          return { consumed, segment, stopped: true };
+        }
 
         const targetBottom =
           targetRect.bottom +
@@ -293,7 +337,7 @@ async function* bodySegmenter(ctx: {
           continue;
         }
 
-        const canBreakTarget = canBreakElement(target);
+        const canBreakTarget = canBreakElement(target, maxBodyHeight);
         const hasNestedPageBreak = pageBreaks.some((pageBreak) => target.contains(pageBreak));
 
         if (
@@ -323,6 +367,9 @@ async function* bodySegmenter(ctx: {
             cleanupPaginationTarget(target, parent, repeatTableHeader);
           });
           consumed = true;
+          if (breakAfter) {
+            return { consumed, segment, stopped: true };
+          }
         } else if (canBreakTarget) {
           const childSegment = bodySlice({
             body,

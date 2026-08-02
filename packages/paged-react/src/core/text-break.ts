@@ -70,6 +70,8 @@ export function textBreaker(textNode: Text, lineRects: DOMRect[]) {
     return {
       rect: lineRect,
       text: text.slice(start, end),
+      start,
+      end,
     };
   });
 }

@@ -1,4 +1,4 @@
-export function canBreakElement(element: Element): boolean {
+export function canBreakElement(element: Element, maxHeight = Number.POSITIVE_INFINITY): boolean {
   const view = element.ownerDocument.defaultView;
   if (!view) {
     return false;
@@ -20,11 +20,9 @@ export function canBreakElement(element: Element): boolean {
 
   const computedStyle = view.getComputedStyle(element);
 
-  if (["avoid", "avoid-page", "avoid-column"].includes(computedStyle.breakInside)) {
-    return false;
-  }
-
-  if (computedStyle.pageBreakInside === "avoid") {
+  const avoidBreak = ["avoid", "avoid-page", "avoid-column"].includes(computedStyle.breakInside);
+  const legacyAvoidBreak = computedStyle.pageBreakInside === "avoid";
+  if ([avoidBreak, legacyAvoidBreak].some(Boolean) && element.getBoundingClientRect().height <= maxHeight) {
     return false;
   }
 
