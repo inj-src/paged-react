@@ -16,7 +16,7 @@ export function PaginatedMultiSegment({
   contentRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <Document ref={contentRef}>
+    <Document ref={contentRef} debug={import.meta.env.DEV}>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -85,7 +85,7 @@ export function PaginatedMixedImageText({
   contentRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <Document ref={contentRef}>
+    <Document ref={contentRef} debug={import.meta.env.DEV}>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -127,7 +127,7 @@ export function PaginatedTableRows({
   contentRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <Document ref={contentRef}>
+    <Document ref={contentRef} debug={import.meta.env.DEV}>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
@@ -180,7 +180,7 @@ export function PaginatedNestedLayout({
   contentRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <Document ref={contentRef}>
+    <Document ref={contentRef} debug={import.meta.env.DEV}>
       <Document.Segment
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}

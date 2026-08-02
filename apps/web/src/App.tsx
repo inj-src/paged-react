@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
+import { exportPdf } from "paged-react";
 import { ComparisonPanel } from "./components/comparison-panel";
 import { ScenarioSelect } from "./components/scenario-select";
 import {
@@ -38,6 +39,35 @@ function App() {
       console.log(iframe.contentWindow!.document.querySelector("html")?.innerHTML);
     },
   });
+
+  const exportPdfFn = async () => {
+    const pagesRoot = contentRef.current;
+    const sourceRoot = pagesRoot?.parentElement?.querySelector<HTMLDivElement>("[data-paged-react-source]");
+    if (!pagesRoot || !sourceRoot) {
+      return;
+    }
+
+    const pdfWindow = window.open("about:blank", "_blank");
+    if (!pdfWindow) {
+      return;
+    }
+
+    try {
+      const bytes = await exportPdf({ sourceRoot, pagesRoot });
+      const blobBytes = new ArrayBuffer(bytes.byteLength);
+      new Uint8Array(blobBytes).set(bytes);
+      const blob = new Blob([blobBytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      pdfWindow.location.href = url;
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      let message = "Unable to export PDF.";
+      if (error instanceof Error) {
+        message = error.message;
+      }
+      pdfWindow.document.body.textContent = message;
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, scenario);
@@ -103,6 +133,12 @@ function App() {
             onClick={reactToPrintFn}
           >
             Print
+          </button>
+          <button
+            className="bg-slate-700 hover:bg-slate-900 px-4 py-2 rounded font-bold text-white"
+            onClick={exportPdfFn}
+          >
+            Export PDF
           </button>
           <ScenarioSelect scenario={scenario} onScenarioChange={setScenario} />
         </div>

@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
-import { paginateDocument } from "../core/paginate.js";
+import { paginateDocument, paginateDocumentIR } from "../core/paginate.js";
 import { resolvePageSize } from "../utils/page-size.js";
 import type {
   DocumentBodyProps,
@@ -89,7 +89,7 @@ export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(fu
 });
 
 const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document(
-  { children, afterPaginate, paginate = true, doNotHideSource = false, ...props },
+  { children, afterPaginate, debug = false, paginate = true, doNotHideSource = false, ...props },
   ref,
 ) {
   const sourceRef = useRef<HTMLDivElement | null>(null);
@@ -124,13 +124,27 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
 
     setPages(null);
 
-    void paginateDocument({
-      sourceRoot,
-      pagesRoot,
-      signal: abortController.signal,
-    }).then((generatedPages) => {
+    let pagination: Promise<{ pages: HTMLElement[]; ir?: unknown }>;
+    if (debug) {
+      pagination = paginateDocumentIR({
+        sourceRoot,
+        pagesRoot,
+        signal: abortController.signal,
+      });
+    } else {
+      pagination = paginateDocument({
+        sourceRoot,
+        pagesRoot,
+        signal: abortController.signal,
+      }).then((generatedPages) => ({ pages: generatedPages }));
+    }
+
+    void pagination.then(({ pages: generatedPages, ir }) => {
       if (abortController.signal.aborted) {
         return;
+      }
+      if (debug && ir) {
+        console.log("[paged-react] PaginatedDocumentIR", ir);
       }
       afterPaginate?.();
       setPages(generatedPages);
@@ -139,7 +153,7 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
     return () => {
       abortController.abort();
     };
-  }, [children, paginate, afterPaginate]);
+  }, [children, paginate, afterPaginate, debug]);
 
   return (
     <context.Provider value={{ pages }}>
