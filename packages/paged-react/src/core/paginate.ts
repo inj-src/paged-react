@@ -64,6 +64,9 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
     const headerSlot = getDirectSlot(segment, "header");
     const bodySlot = getDirectSlot(segment, "body");
     const footerSlot = getDirectSlot(segment, "footer");
+    const watermarks = Array.from(segment.children).filter((child) => {
+      return child.hasAttribute("data-paged-react-watermark-source");
+    });
 
     const headerHeight = headerSlot?.offsetHeight ?? 0;
     const footerHeight = footerSlot?.offsetHeight ?? 0;
@@ -142,10 +145,8 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
       cloneChildrenInto(page.header, headerSlot);
       cloneChildrenInto(page.footer, footerSlot);
       cloneChildrenInto(page.body, bodySegment);
-      for (const watermark of Array.from(sourceRootClone.children)) {
-        if (watermark.hasAttribute("data-paged-react-watermark-source")) {
-          page.page.appendChild(watermark.cloneNode(true));
-        }
+      for (const watermark of watermarks) {
+        page.page.appendChild(watermark.cloneNode(true));
       }
       pages.push(page.page);
 

@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef } from "react";
 import { paginateDocument } from "../core/paginate.js";
 import { resolvePageSize } from "../utils/page-size.js";
 import type {
@@ -8,7 +8,6 @@ import type {
   DocumentProps,
   DocumentSegmentProps,
 } from "../types.js";
-import { context } from "./context.js";
 
 type DocumentComponent = ReturnType<typeof forwardRef<HTMLDivElement, DocumentProps>> & {
   Segment: typeof DocumentSegment;
@@ -94,7 +93,6 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
 ) {
   const sourceRef = useRef<HTMLDivElement | null>(null);
   const pagesRef = useRef<HTMLDivElement | null>(null);
-  const [pages, setPages] = useState<HTMLElement[] | null>(null);
 
   const mergedRef = useMemo(() => {
     return (node: HTMLDivElement | null) => {
@@ -122,18 +120,15 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
 
     const abortController = new AbortController();
 
-    setPages(null);
-
     void paginateDocument({
       sourceRoot,
       pagesRoot,
       signal: abortController.signal,
-    }).then((generatedPages) => {
+    }).then(() => {
       if (abortController.signal.aborted) {
         return;
       }
       afterPaginate?.();
-      setPages(generatedPages);
     });
 
     return () => {
@@ -142,14 +137,12 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
   }, [children, paginate, afterPaginate]);
 
   return (
-    <context.Provider value={{ pages }}>
-      <div style={{ display: "contents" }}>
-        <div data-paged-react-pages ref={mergedRef} {...props} />
-        <div data-paged-react-source data-paged-react-source-hidden={String(!doNotHideSource)} ref={sourceRef}>
-          {children}
-        </div>
+    <div style={{ display: "contents" }}>
+      <div data-paged-react-pages ref={mergedRef} {...props} />
+      <div data-paged-react-source data-paged-react-source-hidden={String(!doNotHideSource)} ref={sourceRef}>
+        {children}
       </div>
-    </context.Provider>
+    </div>
   );
 });
 

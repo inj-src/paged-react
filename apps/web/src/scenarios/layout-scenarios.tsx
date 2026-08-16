@@ -185,6 +185,9 @@ export function PaginatedNestedLayout({
         pageSize={pageSizes.A4}
         className={["bg-transparent", PAGE_MARGIN_CLASS].join(" ")}
       >
+        <Watermark className="text-slate-400 text-sm">
+          Page <PageNumber /> of <TotalPages />
+        </Watermark>
         <Document.Header>
           <HeaderLine left="Prescription Layout" right="Nested Flow" />
         </Document.Header>
@@ -197,9 +200,6 @@ export function PaginatedNestedLayout({
           <NestedPrescriptionLayout />
         </Document.Body>
         <Document.Footer>
-          <Watermark className="text-slate-400 text-sm">
-            Page <PageNumber /> of <TotalPages />
-          </Watermark>
           <FooterLine content="Nested Layout Pagination" />
         </Document.Footer>
       </Document.Segment>

@@ -147,24 +147,24 @@ The package CSS handles the document structure. Add this optional CSS in your ap
 - `PageBreak`: starts following content on a new page.
 - `PageNumber`: renders the current page number.
 - `TotalPages`: renders the total number of generated pages.
-- `Watermark`: renders a watermark inside the document.
+- `Watermark`: renders a watermark inside one document segment.
 - `pageSizes`: built-in page sizes, including A-series, B4, B5, Letter, Legal, and Ledger.
 
 Slots accept normal `div` props such as `className`, `style`, `id`, `data-*`, and `aria-*`.
 
 ## Watermark
 
-Use `Watermark` inside `Document` for static page decoration. Its source markup is cloned as each page is created, so it is not rendered through a React portal.
+Use `Watermark` as a direct child of `Document.Segment` for static page decoration. Its source markup is cloned as each page in that segment is created, so it is not rendered through a React portal.
 
 ```tsx
 <Document>
   <Document.Segment pageSize={pageSizes.A4}>
+    <Watermark>
+      <div>Draft</div>
+    </Watermark>
+
     <Document.Body>Report content</Document.Body>
   </Document.Segment>
-
-  <Watermark>
-    <div>Draft</div>
-  </Watermark>
 </Document>
 ```
 

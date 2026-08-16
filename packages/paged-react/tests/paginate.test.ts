@@ -371,7 +371,7 @@ describe("paginateDocument", () => {
     expect(pages[2].textContent).toBe("Third");
   });
 
-  it("clones source watermarks while creating each page", async () => {
+  it("clones segment watermarks while creating each page", async () => {
     const sourceRoot = document.createElement("div");
     const pagesRoot = document.createElement("div");
     const segment = document.createElement("div");
@@ -379,6 +379,9 @@ describe("paginateDocument", () => {
     const first = document.createElement("p");
     const second = document.createElement("p");
     const watermark = document.createElement("div");
+    const secondSegment = document.createElement("div");
+    const secondBody = document.createElement("div");
+    const secondWatermark = document.createElement("div");
 
     segment.setAttribute("data-paged-react-segment-source", "");
     segment.setAttribute("data-paged-react-page-width", "100px");
@@ -388,16 +391,24 @@ describe("paginateDocument", () => {
     second.setAttribute("data-test-height", "30");
     watermark.setAttribute("data-paged-react-watermark-source", "");
     watermark.textContent = "Draft";
+    secondSegment.setAttribute("data-paged-react-segment-source", "");
+    secondSegment.setAttribute("data-paged-react-page-width", "100px");
+    secondSegment.setAttribute("data-paged-react-page-height", "50px");
+    secondBody.setAttribute("data-paged-react-body-source", "");
+    secondWatermark.setAttribute("data-paged-react-watermark-source", "");
+    secondWatermark.textContent = "Final";
     body.append(first, second);
-    segment.append(body);
-    sourceRoot.append(segment, watermark);
+    segment.append(body, watermark);
+    secondSegment.append(secondBody, secondWatermark);
+    sourceRoot.append(segment, secondSegment);
     document.body.append(sourceRoot, pagesRoot);
 
     const pages = await paginateDocument({ sourceRoot, pagesRoot });
 
-    expect(pages).toHaveLength(2);
-    expect(pagesRoot.style.getPropertyValue("--paged-react-total-pages")).toBe("2");
+    expect(pages).toHaveLength(3);
+    expect(pagesRoot.style.getPropertyValue("--paged-react-total-pages")).toBe("3");
     expect(pages[0].querySelector("[data-paged-react-watermark-source]")?.textContent).toBe("Draft");
     expect(pages[1].querySelector("[data-paged-react-watermark-source]")?.textContent).toBe("Draft");
+    expect(pages[2].querySelector("[data-paged-react-watermark-source]")?.textContent).toBe("Final");
   });
 });
