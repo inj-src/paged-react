@@ -21,6 +21,7 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
 
   if (signal?.aborted) return pages;
 
+  pagesRoot.style.setProperty("--paged-react-total-pages", "0");
   pagesRoot.replaceChildren();
 
   await waitForLayoutReady(sourceRoot);
@@ -55,7 +56,10 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
         "var(--paged-react-page-margin-top) var(--paged-react-page-margin-right) var(--paged-react-page-margin-bottom) var(--paged-react-page-margin-left)";
     }
 
-    const segmentPageSizePixels = resolvePageSizeInPixels(segmentPageSize, sourceRoot.ownerDocument);
+    const segmentPageSizePixels = resolvePageSizeInPixels(
+      segmentPageSize,
+      sourceRoot.ownerDocument,
+    );
 
     const headerSlot = getDirectSlot(segment, "header");
     const bodySlot = getDirectSlot(segment, "body");
@@ -78,7 +82,8 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
       continue;
     }
 
-    const repeatTableHeader = segment.getAttribute("data-paged-react-repeat-table-header") === "true";
+    const repeatTableHeader =
+      segment.getAttribute("data-paged-react-repeat-table-header") === "true";
     const measurementPage = createPage({
       segment,
       pagesRoot,
@@ -137,6 +142,11 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
       cloneChildrenInto(page.header, headerSlot);
       cloneChildrenInto(page.footer, footerSlot);
       cloneChildrenInto(page.body, bodySegment);
+      for (const watermark of Array.from(sourceRootClone.children)) {
+        if (watermark.hasAttribute("data-paged-react-watermark-source")) {
+          page.page.appendChild(watermark.cloneNode(true));
+        }
+      }
       pages.push(page.page);
 
       bodyIndex += 1;
@@ -146,6 +156,7 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
   }
 
   sourceRootClone.remove();
+  pagesRoot.style.setProperty("--paged-react-total-pages", String(pages.length));
   return pages;
 }
 
@@ -247,7 +258,8 @@ async function* bodySegmenter(ctx: {
     let consumed = false;
     let stopped = false;
     const parentStyle = styleCache.get(parent);
-    const parentOffset = parentStyle.paddingBottom + parentStyle.borderBottomWidth + parentStyle.marginBottom;
+    const parentOffset =
+      parentStyle.paddingBottom + parentStyle.borderBottomWidth + parentStyle.marginBottom;
 
     for (const target of Array.from(parent.childNodes)) {
       if (target instanceof ownerWindow.Element) {
@@ -269,7 +281,9 @@ async function* bodySegmenter(ctx: {
           bodyRect.top;
 
         const isEmptyShell =
-          target.children.length === 0 && target.textContent !== null && target.textContent.trim() === "";
+          target.children.length === 0 &&
+          target.textContent !== null &&
+          target.textContent.trim() === "";
 
         if (isEmptyShell) {
           const targetContentHeight =
@@ -305,7 +319,8 @@ async function* bodySegmenter(ctx: {
           segment.appendChild(target.cloneNode(true));
 
           // Keep table headers on the current page.
-          if (parent instanceof ownerWindow.HTMLTableElement && target.tagName === "THEAD") continue;
+          if (parent instanceof ownerWindow.HTMLTableElement && target.tagName === "THEAD")
+            continue;
 
           // Keep the first body row when repeating table headers.
           if (
@@ -350,13 +365,18 @@ async function* bodySegmenter(ctx: {
           if (consumed) return { consumed, segment, stopped: true };
 
           const targetRequiredPageHeight =
-            targetRect.height + Math.max(0, targetStyle.marginTop) + Math.max(0, targetStyle.marginBottom);
+            targetRect.height +
+            Math.max(0, targetStyle.marginTop) +
+            Math.max(0, targetStyle.marginBottom);
 
           if (targetRequiredPageHeight <= maxBodyHeight && mutations.length > 0) {
             return { consumed, segment, stopped: true };
           }
 
-          console.error("Paged React: unbreakable element exceeds one page and will be clipped.", target);
+          console.error(
+            "Paged React: unbreakable element exceeds one page and will be clipped.",
+            target,
+          );
 
           segment.appendChild(target.cloneNode(true));
           mutations.push(() => target.remove());
@@ -420,7 +440,11 @@ async function* bodySegmenter(ctx: {
     return { consumed, segment, stopped };
   }
 
-  function cleanupPaginationTarget(target: Element, parent: HTMLElement, repeatTableHeader: boolean) {
+  function cleanupPaginationTarget(
+    target: Element,
+    parent: HTMLElement,
+    repeatTableHeader: boolean,
+  ) {
     if (target.tagName === "LI" && parent instanceof ownerWindow.HTMLOListElement) {
       if (parent.reversed) parent.start -= 1;
       else parent.start += 1;
@@ -428,7 +452,11 @@ async function* bodySegmenter(ctx: {
 
     target.remove();
 
-    if (parent.children.length === 0 && parent.textContent !== null && parent.textContent.trim() === "") {
+    if (
+      parent.children.length === 0 &&
+      parent.textContent !== null &&
+      parent.textContent.trim() === ""
+    ) {
       parent.setAttribute(EMPTY_BY_PAGINATION_ATTRIBUTE, "");
     }
 

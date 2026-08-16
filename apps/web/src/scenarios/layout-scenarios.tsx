@@ -1,4 +1,4 @@
-import { Document, pageSizes, Watermark } from "paged-react";
+import { Document, PageNumber, pageSizes, TotalPages, Watermark } from "paged-react";
 import { NestedPrescriptionLayout } from "./nested-prescription-layout";
 import {
   FooterLine,
@@ -197,14 +197,8 @@ export function PaginatedNestedLayout({
           <NestedPrescriptionLayout />
         </Document.Body>
         <Document.Footer>
-          <Watermark>
-            {({ pages, pageIndex }) => {
-              return (
-                <span className="text-slate-400 text-sm">
-                  Page {pageIndex + 1} of {pages.length}
-                </span>
-              );
-            }}
+          <Watermark className="text-slate-400 text-sm">
+            Page <PageNumber /> of <TotalPages />
           </Watermark>
           <FooterLine content="Nested Layout Pagination" />
         </Document.Footer>

@@ -370,4 +370,34 @@ describe("paginateDocument", () => {
     expect(pages[1].textContent).toBe("Second");
     expect(pages[2].textContent).toBe("Third");
   });
+
+  it("clones source watermarks while creating each page", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const first = document.createElement("p");
+    const second = document.createElement("p");
+    const watermark = document.createElement("div");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "50px");
+    body.setAttribute("data-paged-react-body-source", "");
+    first.setAttribute("data-test-height", "30");
+    second.setAttribute("data-test-height", "30");
+    watermark.setAttribute("data-paged-react-watermark-source", "");
+    watermark.textContent = "Draft";
+    body.append(first, second);
+    segment.append(body);
+    sourceRoot.append(segment, watermark);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages).toHaveLength(2);
+    expect(pagesRoot.style.getPropertyValue("--paged-react-total-pages")).toBe("2");
+    expect(pages[0].querySelector("[data-paged-react-watermark-source]")?.textContent).toBe("Draft");
+    expect(pages[1].querySelector("[data-paged-react-watermark-source]")?.textContent).toBe("Draft");
+  });
 });

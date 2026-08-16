@@ -19,6 +19,7 @@
 }
 
 [data-paged-react-pages] {
+  counter-reset: paged-react-page paged-react-total-pages var(--paged-react-total-pages);
   display: grid;
 }
 
@@ -29,6 +30,7 @@
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
   position: relative;
+  counter-increment: paged-react-page;
 }
 
 [data-paged-react-page-body] {
@@ -40,7 +42,15 @@
   overflow: hidden;
 }
 
-[data-paged-react-watermark] {
+[data-paged-react-watermark-source] {
   position: absolute;
   inset: 0;
+}
+
+[data-paged-react-page-number]::before {
+  content: counter(paged-react-page);
+}
+
+[data-paged-react-total-pages]::before {
+  content: counter(paged-react-total-pages);
 }

@@ -2,6 +2,8 @@
 
 React components for building print-ready documents with automatic pagination.
 
+> This is an early-stage project. Its public API is not stable yet and may change between releases.
+
 The examples below use the expected npm package name:
 
 ```sh
@@ -143,6 +145,8 @@ The package CSS handles the document structure. Add this optional CSS in your ap
 - `Document.Body`: the content that gets split across pages.
 - `Document.Footer`: repeated at the bottom of every generated page in the segment.
 - `PageBreak`: starts following content on a new page.
+- `PageNumber`: renders the current page number.
+- `TotalPages`: renders the total number of generated pages.
 - `Watermark`: renders a watermark inside the document.
 - `pageSizes`: built-in page sizes, including A-series, B4, B5, Letter, Legal, and Ledger.
 
@@ -150,7 +154,7 @@ Slots accept normal `div` props such as `className`, `style`, `id`, `data-*`, an
 
 ## Watermark
 
-Use `Watermark` inside `Document`. It receives a render function with the current zero-based `pageIndex` and the generated `pages` array. The `Watermark` component gets copied over and rendered to every-single page.
+Use `Watermark` inside `Document` for static page decoration. Its source markup is cloned as each page is created, so it is not rendered through a React portal.
 
 ```tsx
 <Document>
@@ -159,16 +163,18 @@ Use `Watermark` inside `Document`. It receives a render function with the curren
   </Document.Segment>
 
   <Watermark>
-    {({ pageIndex, pages }) => (
-      <div>
-        Draft - page {pageIndex + 1} of {pages.length}
-      </div>
-    )}
+    <div>Draft</div>
   </Watermark>
 </Document>
 ```
 
-The rendered watermark is portaled into each generated page.
+Use `PageNumber` and `TotalPages` anywhere in document content, including headers, footers, and watermarks. They render as spans and accept normal span props.
+
+```tsx
+<Document.Footer>
+  Page <PageNumber /> of <TotalPages />
+</Document.Footer>
+```
 
 ## Tables
 
