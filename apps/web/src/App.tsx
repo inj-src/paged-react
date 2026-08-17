@@ -37,9 +37,6 @@ function App() {
   const contentRef = useRef<HTMLDivElement>(null);
   const reactToPrintFn = useReactToPrint({
     contentRef,
-    print: async (iframe) => {
-      console.log(iframe.contentWindow!.document.querySelector("html")?.innerHTML);
-    },
   });
 
   useEffect(() => {
@@ -111,7 +108,7 @@ function App() {
             Scale <span className="text-blue-700">{scalePercent}%</span>
             <input
               aria-label="Scale"
-              className="accent-blue-600 w-[180px]"
+              className="w-[180px] accent-blue-600"
               type="range"
               min="10"
               max="200"
