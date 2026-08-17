@@ -90,9 +90,6 @@ importers:
 
   packages/paged-react:
     dependencies:
-      '@chenglou/pretext':
-        specifier: ^0.0.6
-        version: 0.0.6
       react:
         specifier: '>=18 <20'
         version: 19.2.6
@@ -226,9 +223,6 @@ packages:
   '@babel/types@7.29.0':
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
-
-  '@chenglou/pretext@0.0.6':
-    resolution: {integrity: sha512-U10s4tFeyu3oVHfXuNWwZSKqHXefhaigpcBkGj60qQFRJ+yUoQ+ez3cGJelP7BWDAB58HCgjcTSmOcg+77afBQ==}
 
   '@csstools/color-helpers@6.0.2':
     resolution: {integrity: sha512-LMGQLS9EuADloEFkcTBR3BwV/CGHV7zyDxVRtVDTwdI2Ca4it0CCVTT9wCkxSgokjE5Ho41hEPgb8OEUwoXr6Q==}
@@ -2044,8 +2038,6 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
-
-  '@chenglou/pretext@0.0.6': {}
 
   '@csstools/color-helpers@6.0.2': {}
 
