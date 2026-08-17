@@ -82,11 +82,20 @@ await paginateDocument({
       bottom: "5mm",
       left: "5mm",
     },
+    scale: 0.8,
   },
 });
 ```
 
 Runtime options override the corresponding `Document.Segment` values for that pagination run.
+`scale` accepts a factor from `0.1` to `2`. Pagination runs against the scaled logical page
+dimensions, then the generated content is painted onto the selected physical page size.
+
+For React documents, pass the same factor to `Document`:
+
+```tsx
+<Document scale={0.8}>{children}</Document>
+```
 
 ## Printing
 

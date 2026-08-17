@@ -1,5 +1,6 @@
 export type PageElements = {
   page: HTMLDivElement;
+  content: HTMLDivElement;
   header: HTMLDivElement;
   body: HTMLDivElement;
   footer: HTMLDivElement;
@@ -68,6 +69,8 @@ export function createPage({
   bodySlot,
   segment,
   pageSize,
+  contentPageSize,
+  scale,
   pageNumber,
 }: {
   pagesRoot: HTMLDivElement;
@@ -75,11 +78,26 @@ export function createPage({
   footerSlot: HTMLDivElement | null;
   bodySlot: HTMLDivElement | null;
   pageSize: ResolvedPageSize;
+  contentPageSize: ResolvedPageSize;
   segment: HTMLDivElement;
+  scale: number;
   pageNumber: number;
 }): PageElements {
-  const page = segment.cloneNode(false) as HTMLDivElement;
-  page.removeAttribute("data-paged-react-segment-source");
+  let page = segment.cloneNode(false) as HTMLDivElement;
+  let content = page;
+
+  if (scale !== 1) {
+    page = pagesRoot.ownerDocument.createElement("div");
+    content = segment.cloneNode(false) as HTMLDivElement;
+    content.removeAttribute("data-paged-react-segment-source");
+    content.setAttribute("data-paged-react-scaled-content", "");
+    content.style.height = contentPageSize.height;
+    content.style.minHeight = contentPageSize.height;
+    content.style.width = contentPageSize.width;
+    content.style.setProperty("--paged-react-scale", String(scale));
+    page.append(content);
+  }
+
   page.setAttribute("data-paged-react-page", "");
   page.setAttribute("data-page-number", String(pageNumber));
   page.style.height = pageSize.height;
@@ -106,10 +124,10 @@ export function createPage({
   footer.setAttribute("data-paged-react-page-footer", "");
   footer.removeAttribute("data-paged-react-footer-source");
 
-  page.append(header, body, footer);
+  content.append(header, body, footer);
   pagesRoot.appendChild(page);
 
-  return { page, header, body, footer };
+  return { page, content, header, body, footer };
 }
 
 export function connectedClone(element: HTMLElement) {

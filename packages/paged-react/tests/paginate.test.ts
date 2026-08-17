@@ -206,6 +206,57 @@ describe("paginateDocument", () => {
     expect(pages[0].style.height).toBe("60px");
     expect(pages[0].style.getPropertyValue("--paged-react-page-margin-top")).toBe("4px");
     expect(pages[0].style.getPropertyValue("--paged-react-page-margin-left")).toBe("7px");
+    expect(pages[0].querySelector(":scope > [data-paged-react-scaled-content]")).toBeNull();
+    expect(pages[0].querySelector(":scope > [data-paged-react-page-body]")).not.toBeNull();
+  });
+
+  it("uses a logical page size before painting scaled generated content", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const content = document.createElement("p");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+    content.setAttribute("data-test-height", "20");
+    body.append(content);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({
+      sourceRoot,
+      pagesRoot,
+      options: {
+        scale: 0.5,
+        pageMargins: { top: "4px", right: "5px", bottom: "6px", left: "7px" },
+      },
+    });
+
+    const scaledContent = pages[0].querySelector<HTMLDivElement>(
+      ":scope > [data-paged-react-scaled-content]",
+    );
+
+    expect(pages[0].style.width).toBe("100px");
+    expect(pages[0].style.height).toBe("100px");
+    expect(scaledContent?.style.width).toBe("200px");
+    expect(scaledContent?.style.height).toBe("200px");
+    expect(scaledContent?.style.getPropertyValue("--paged-react-scale")).toBe("0.5");
+    expect(scaledContent?.style.getPropertyValue("--paged-react-page-margin-top")).toBe(
+      "calc(4px / 0.5)",
+    );
+  });
+
+  it("rejects scale values outside the browser print range", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+
+    await expect(
+      paginateDocument({ sourceRoot, pagesRoot, options: { scale: 0.09 } }),
+    ).rejects.toThrow("Paged React scale must be between 0.1 and 2.");
   });
 
   it("paginates elements owned by an iframe document", async () => {

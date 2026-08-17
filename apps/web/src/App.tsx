@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { ComparisonPanel } from "./components/comparison-panel";
 import { ScenarioSelect } from "./components/scenario-select";
 import {
@@ -30,6 +30,9 @@ function App() {
     const raw = localStorage.getItem(STORAGE_KEY);
     return (raw as ScenarioId) || "long-article";
   });
+  const [scalePercent, setScalePercent] = useState(100);
+  const deferredScalePercent = useDeferredValue(scalePercent);
+  const scale = deferredScalePercent / 100;
 
   const contentRef = useRef<HTMLDivElement>(null);
   const reactToPrintFn = useReactToPrint({
@@ -48,45 +51,45 @@ function App() {
       case "forced-breaks":
         return {
           natural: <NaturalForcedBreaks />,
-          paginated: <PaginatedForcedBreaks contentRef={contentRef} />,
+          paginated: <PaginatedForcedBreaks contentRef={contentRef} scale={scale} />,
         };
       case "legacy-breaks":
         return {
           natural: <NaturalLegacyBreaks />,
-          paginated: <PaginatedLegacyBreaks contentRef={contentRef} />,
+          paginated: <PaginatedLegacyBreaks contentRef={contentRef} scale={scale} />,
         };
       case "break-inside-avoid":
         return {
           natural: <NaturalBreakInsideAvoid />,
-          paginated: <PaginatedBreakInsideAvoid contentRef={contentRef} />,
+          paginated: <PaginatedBreakInsideAvoid contentRef={contentRef} scale={scale} />,
         };
       case "multi-segment":
         return {
           natural: <NaturalMultiSegment />,
-          paginated: <PaginatedMultiSegment contentRef={contentRef} />,
+          paginated: <PaginatedMultiSegment contentRef={contentRef} scale={scale} />,
         };
       case "mixed-image-text":
         return {
           natural: <NaturalMixedImageText />,
-          paginated: <PaginatedMixedImageText contentRef={contentRef} />,
+          paginated: <PaginatedMixedImageText contentRef={contentRef} scale={scale} />,
         };
       case "table-rows":
         return {
           natural: <NaturalTableRows />,
-          paginated: <PaginatedTableRows contentRef={contentRef} />,
+          paginated: <PaginatedTableRows contentRef={contentRef} scale={scale} />,
         };
       case "nested-layout":
         return {
           natural: <NaturalNestedLayout />,
-          paginated: <PaginatedNestedLayout contentRef={contentRef} />,
+          paginated: <PaginatedNestedLayout contentRef={contentRef} scale={scale} />,
         };
       default:
         return {
           natural: <NaturalLongArticle />,
-          paginated: <PaginatedLongArticle contentRef={contentRef} />,
+          paginated: <PaginatedLongArticle contentRef={contentRef} scale={scale} />,
         };
     }
-  }, [scenario]);
+  }, [scenario, scale]);
 
   return (
     <main className="mx-auto p-6 min-h-screen text-slate-900">
@@ -104,6 +107,19 @@ function App() {
           >
             Print
           </button>
+          <label className="flex flex-col gap-1.5 font-semibold text-xs uppercase tracking-[0.04em]">
+            Scale <span className="text-blue-700">{scalePercent}%</span>
+            <input
+              aria-label="Scale"
+              className="accent-blue-600 w-[180px]"
+              type="range"
+              min="10"
+              max="200"
+              step="5"
+              value={scalePercent}
+              onChange={(event) => setScalePercent(Number(event.target.value))}
+            />
+          </label>
           <ScenarioSelect scenario={scenario} onScenarioChange={setScenario} />
         </div>
       </header>

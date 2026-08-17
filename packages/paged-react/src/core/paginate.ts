@@ -18,6 +18,11 @@ const EMPTY_BY_PAGINATION_ATTRIBUTE = "data-paged-react-empty-by-pagination";
 export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HTMLElement[]> {
   const { sourceRoot, pagesRoot, signal, options } = ctx;
   const pages: HTMLElement[] = [];
+  const scale = options?.scale ?? 1;
+
+  if (!Number.isFinite(scale) || scale < 0.1 || scale > 2) {
+    throw new Error("Paged React scale must be between 0.1 and 2.");
+  }
 
   if (signal?.aborted) return pages;
 
@@ -60,6 +65,44 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
       segmentPageSize,
       sourceRoot.ownerDocument,
     );
+    let contentPageSize = segmentPageSize;
+    let contentPageSizePixels = segmentPageSizePixels;
+
+    if (scale !== 1) {
+      const view = sourceRoot.ownerDocument.defaultView;
+      if (!view) {
+        throw new Error("Paged React requires a document with an active window.");
+      }
+      const style = view.getComputedStyle(segment);
+      const marginTop = style.getPropertyValue("--paged-react-page-margin-top").trim();
+      const marginRight = style.getPropertyValue("--paged-react-page-margin-right").trim();
+      const marginBottom = style.getPropertyValue("--paged-react-page-margin-bottom").trim();
+      const marginLeft = style.getPropertyValue("--paged-react-page-margin-left").trim();
+
+      if (marginTop) {
+        segment.style.setProperty("--paged-react-page-margin-top", `calc(${marginTop} / ${scale})`);
+      }
+      if (marginRight) {
+        segment.style.setProperty("--paged-react-page-margin-right", `calc(${marginRight} / ${scale})`);
+      }
+      if (marginBottom) {
+        segment.style.setProperty("--paged-react-page-margin-bottom", `calc(${marginBottom} / ${scale})`);
+      }
+      if (marginLeft) {
+        segment.style.setProperty("--paged-react-page-margin-left", `calc(${marginLeft} / ${scale})`);
+      }
+
+      contentPageSize = {
+        width: `${segmentPageSizePixels.width / scale}px`,
+        height: `${segmentPageSizePixels.height / scale}px`,
+      };
+      contentPageSizePixels = {
+        width: segmentPageSizePixels.width / scale,
+        height: segmentPageSizePixels.height / scale,
+      };
+      segment.style.minHeight = contentPageSize.height;
+      segment.style.width = contentPageSize.width;
+    }
 
     const headerSlot = getDirectSlot(segment, "header");
     const bodySlot = getDirectSlot(segment, "body");
@@ -76,7 +119,7 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
       segBox.paddingTop + segBox.paddingBottom + segBox.borderBottomWidth + segBox.borderTopWidth;
 
     const calculatedMaxBodyHeight =
-      segmentPageSizePixels.height - headerHeight - footerHeight - segmentHeightOffset;
+      contentPageSizePixels.height - headerHeight - footerHeight - segmentHeightOffset;
 
     if (calculatedMaxBodyHeight <= 0) {
       console.warn(
@@ -91,6 +134,8 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
       segment,
       pagesRoot,
       pageSize: segmentPageSize,
+      contentPageSize,
+      scale,
       bodySlot,
       headerSlot,
       footerSlot,
@@ -100,6 +145,9 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
     measurementPage.page.style.position = "absolute";
     measurementPage.page.style.top = "0";
     measurementPage.page.style.visibility = "hidden";
+    if (scale !== 1) {
+      measurementPage.content.style.setProperty("scale", "1");
+    }
     cloneChildrenInto(measurementPage.header, headerSlot);
     cloneChildrenInto(measurementPage.footer, footerSlot);
 
@@ -133,6 +181,8 @@ export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HT
         segment,
         pagesRoot,
         pageSize: segmentPageSize,
+        contentPageSize,
+        scale,
         bodySlot,
         headerSlot,
         footerSlot,

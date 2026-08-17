@@ -35,6 +35,7 @@ export type PageMargins = {
 export type PaginationOptions = {
   pageSize?: PageSize;
   pageMargins?: PageMargins;
+  scale?: number;
 };
 
 export type PaginateDocumentContext = {
@@ -50,6 +51,7 @@ export type DocumentProps = SlotProps & {
   children: ReactNode;
   doNotHideSource?: boolean;
   paginate?: boolean;
+  scale?: number;
   afterPaginate?: () => void;
 };
 

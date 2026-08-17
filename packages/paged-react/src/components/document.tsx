@@ -88,7 +88,7 @@ export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(fu
 });
 
 const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document(
-  { children, afterPaginate, paginate = true, doNotHideSource = false, ...props },
+  { children, afterPaginate, paginate = true, doNotHideSource = false, scale = 1, ...props },
   ref,
 ) {
   const sourceRef = useRef<HTMLDivElement | null>(null);
@@ -124,6 +124,7 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
       sourceRoot,
       pagesRoot,
       signal: abortController.signal,
+      options: { scale },
     }).then(() => {
       if (abortController.signal.aborted) {
         return;
@@ -134,7 +135,7 @@ const DocumentRoot = forwardRef<HTMLDivElement, DocumentProps>(function Document
     return () => {
       abortController.abort();
     };
-  }, [children, paginate, afterPaginate]);
+  }, [children, paginate, afterPaginate, scale]);
 
   return (
     <div style={{ display: "contents" }}>

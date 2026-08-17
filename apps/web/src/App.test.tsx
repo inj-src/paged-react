@@ -46,4 +46,14 @@ describe("App", () => {
     expect(screen.getAllByText("Prescription Layout")).not.toHaveLength(0);
     expect(screen.getAllByText("Facid HC 2% / 1% Cream")).not.toHaveLength(0);
   });
+
+  it("updates the scale slider", () => {
+    render(React.createElement(App));
+
+    const scale = screen.getByLabelText("Scale");
+    fireEvent.change(scale, { target: { value: "80" } });
+
+    expect(screen.getByText("80%")).toBeInTheDocument();
+    expect(scale).toHaveValue("80");
+  });
 });

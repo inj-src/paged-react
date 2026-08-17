@@ -33,6 +33,15 @@
   counter-increment: paged-react-page;
 }
 
+[data-paged-react-scaled-content] {
+  align-self: start;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  justify-self: start;
+  scale: var(--paged-react-scale);
+  transform-origin: top left;
+}
+
 [data-paged-react-page-body] {
   min-width: 0;
 }

@@ -1,6 +1,6 @@
 {
   "name": "paged-react",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "React components for print-ready documents with automatic pagination.",
   "type": "module",
   "license": "MIT",

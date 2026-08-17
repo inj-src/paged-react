@@ -8,13 +8,17 @@ import {
   Paragraphs,
 } from "./shared";
 
+type PaginatedScenarioProps = {
+  contentRef: React.RefObject<HTMLDivElement | null>;
+  scale: number;
+};
+
 export function PaginatedLongArticle({
   contentRef,
-}: {
-  contentRef: React.RefObject<HTMLDivElement | null>;
-}) {
+  scale,
+}: PaginatedScenarioProps) {
   return (
-    <Document ref={contentRef}>
+    <Document ref={contentRef} scale={scale}>
       <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Quarterly Report" right="Long Article" />
@@ -50,11 +54,10 @@ export function NaturalLongArticle() {
 
 export function PaginatedForcedBreaks({
   contentRef,
-}: {
-  contentRef: React.RefObject<HTMLDivElement | null>;
-}) {
+  scale,
+}: PaginatedScenarioProps) {
   return (
-    <Document ref={contentRef}>
+    <Document ref={contentRef} scale={scale}>
       <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Forced Breaks" />
@@ -94,11 +97,10 @@ export function NaturalForcedBreaks() {
 
 export function PaginatedLegacyBreaks({
   contentRef,
-}: {
-  contentRef: React.RefObject<HTMLDivElement | null>;
-}) {
+  scale,
+}: PaginatedScenarioProps) {
   return (
-    <Document ref={contentRef}>
+    <Document ref={contentRef} scale={scale}>
       <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Legacy Break Properties" />
@@ -148,11 +150,10 @@ export function NaturalLegacyBreaks() {
 
 export function PaginatedBreakInsideAvoid({
   contentRef,
-}: {
-  contentRef: React.RefObject<HTMLDivElement | null>;
-}) {
+  scale,
+}: PaginatedScenarioProps) {
   return (
-    <Document ref={contentRef}>
+    <Document ref={contentRef} scale={scale}>
       <Document.Segment pageSize={pageSizes.A4} className={[PAGE_MARGIN_CLASS].join(" ")}>
         <Document.Header>
           <HeaderLine left="Break Inside Avoid" />
