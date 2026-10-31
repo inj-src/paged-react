@@ -1,75 +1,31 @@
-export function textBreaker(textNode: Text, lineRects: DOMRect[]) {
-  const text = textNode.textContent;
-  if (!text) return [];
+import type { LineBox } from "./line-boxes.js";
+import { measureRange } from "./measure-range.js";
 
-  const rectCache = new Map<number, DOMRect>();
-  const rectAt = (index: number) => {
-    const cachedRect = rectCache.get(index);
+/**
+ * Offset of the first character rendered on `line` (a line box of `textNode`), found by binary
+ * search over character rects. Text before it belongs to earlier lines.
+ */
+export function lineStartOffset(textNode: Text, line: LineBox): number {
+  const text = textNode.data;
+  const range = measureRange(textNode.ownerDocument);
+  const lineMiddle = (line.top + line.bottom) / 2;
+  let low = 0;
+  let high = text.length - 1;
+  let result = text.length;
 
-    if (cachedRect) {
-      return cachedRect;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    range.setStart(textNode, mid);
+    range.setEnd(textNode, mid + 1);
+    const rect = range.getBoundingClientRect();
+
+    if ((rect.top + rect.bottom) / 2 >= lineMiddle) {
+      result = mid;
+      high = mid - 1;
+    } else {
+      low = mid + 1;
     }
+  }
 
-    const charRange = textNode.ownerDocument.createRange();
-    charRange.setStart(textNode, index);
-    charRange.setEnd(textNode, index + 1);
-
-    const rect = charRange.getBoundingClientRect();
-    rectCache.set(index, rect);
-    return rect;
-  };
-
-  const firstIndexOnLine = (lineRect: DOMRect) => {
-    const lineMiddle = (lineRect.top + lineRect.bottom) / 2;
-    let low = 0;
-    let high = text.length - 1;
-    let result = text.length;
-
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
-      const rect = rectAt(mid);
-      const rectMiddle = (rect.top + rect.bottom) / 2;
-
-      if (rectMiddle >= lineMiddle) {
-        result = mid;
-        high = mid - 1;
-      } else {
-        low = mid + 1;
-      }
-    }
-
-    return result;
-  };
-
-  const firstIndexAfterLine = (lineRect: DOMRect, startIndex: number) => {
-    const lineMiddle = (lineRect.top + lineRect.bottom) / 2;
-    let low = startIndex;
-    let high = text.length - 1;
-    let result = text.length;
-
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
-      const rect = rectAt(mid);
-      const rectMiddle = (rect.top + rect.bottom) / 2;
-
-      if (rectMiddle > lineMiddle) {
-        result = mid;
-        high = mid - 1;
-      } else {
-        low = mid + 1;
-      }
-    }
-
-    return result;
-  };
-
-  return lineRects.map((lineRect) => {
-    const start = firstIndexOnLine(lineRect);
-    const end = firstIndexAfterLine(lineRect, start);
-
-    return {
-      rect: lineRect,
-      text: text.slice(start, end),
-    };
-  });
+  return result;
 }

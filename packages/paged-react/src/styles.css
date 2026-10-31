@@ -33,6 +33,28 @@
   counter-increment: paged-react-page;
 }
 
+/* Start every page on its own printed sheet. Chrome rounds the sheet to whole pixels, so stacked
+   pages otherwise drift up by up to 1px per sheet (~34pt by page 100). Deliberately not inside
+   `@media print` (breaks do nothing on screen): a print-only rule sharing a stylesheet with
+   @font-face rules doubled Chrome's PDF time (0.9 s -> 1.9 s on 122 pages). */
+[data-paged-react-page] + [data-paged-react-page] {
+  break-before: page;
+}
+
+/* Page counters are resolved after pagination; see PAGINATING_ATTRIBUTE in paginate.ts. */
+[data-paged-react-pages][data-paged-react-paginating] {
+  counter-reset: none;
+}
+
+[data-paged-react-paginating] [data-paged-react-page] {
+  counter-increment: none;
+}
+
+[data-paged-react-paginating] [data-paged-react-page-number]::before,
+[data-paged-react-paginating] [data-paged-react-total-pages]::before {
+  content: "0";
+}
+
 [data-paged-react-scaled-content] {
   align-self: start;
   display: grid;
