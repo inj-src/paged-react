@@ -506,6 +506,56 @@ describe("paginateDocument", () => {
     ]);
   });
 
+  it("uses first-page and odd-page bands and numbers pages from pageNumberStart", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const slot = (kind: "header" | "footer", pages: string | null, html: string) => {
+      const element = document.createElement("div");
+      element.setAttribute(`data-paged-react-${kind}-source`, "");
+      if (pages) element.setAttribute("data-paged-react-pages", pages);
+      element.innerHTML = html;
+      return element;
+    };
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    segment.setAttribute("data-paged-react-page-number-start", "5");
+    body.setAttribute("data-paged-react-body-source", "");
+    for (const text of ["One", "Two", "Three"]) {
+      const block = document.createElement("p");
+      block.setAttribute("data-test-height", "60");
+      block.style.breakInside = "avoid";
+      block.textContent = text;
+      body.append(block);
+    }
+    segment.append(
+      slot("header", null, "Head"),
+      slot("header", "first", ""),
+      body,
+      slot("footer", null, 'Default <span data-paged-react-page-number=""></span>'),
+      slot("footer", "odd", 'Odd <span data-paged-react-page-number="" data-paged-react-format="lower-roman"></span>'),
+    );
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    // Pages 5, 6, 7: no header on the segment's first page, the odd footer on 5 and 7.
+    expect(pages.map((page) => page.querySelector("[data-paged-react-page-header]")?.textContent)).toEqual([
+      "",
+      "Head",
+      "Head",
+    ]);
+    expect(pages.map((page) => page.querySelector("[data-paged-react-page-footer]")?.textContent)).toEqual([
+      "Odd v",
+      "Default 6",
+      "Odd vii",
+    ]);
+  });
+
   it("rejects scale values outside the browser print range", async () => {
     const sourceRoot = document.createElement("div");
     const pagesRoot = document.createElement("div");
