@@ -20,21 +20,85 @@ const EMPTY_BY_PAGINATION_ATTRIBUTE = "data-paged-react-empty-by-pagination";
 // Parent displays whose in-flow children are laid out top to bottom in source order.
 const ORDERED_FLOW_DISPLAYS = new Set(["block", "flow-root", "list-item", "table-row-group"]);
 
-const PAGINATING_ATTRIBUTE = "data-paged-react-paginating";
+const PAGE_NUMBER_SELECTOR = "[data-paged-react-page-number], [data-paged-react-total-pages], [data-paged-react-target-page]";
+
+// Pagination passes when filled-in target page numbers keep changing the layout.
+const MAX_PAGINATION_PASSES = 3;
 
 export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HTMLElement[]> {
-  // CSS page counters are switched off while pages are added (see styles.css): keeping them
-  // current made every page's style and layout pass walk the whole document. Removing the
-  // attribute resolves them once.
-  ctx.pagesRoot.setAttribute(PAGINATING_ATTRIBUTE, "");
-  try {
-    return await paginateSegments(ctx);
-  } finally {
-    ctx.pagesRoot.removeAttribute(PAGINATING_ATTRIBUTE);
+  let knownTargets = new Map<string, string>();
+  for (let pass = 1; ; pass++) {
+    const pages = await paginateSegments(ctx, knownTargets);
+    const targetPages = fillPageNumbers(pages);
+
+    // A filled-in target page number can be wider than its placeholder and rewrap its line (a
+    // table of contents entry, or a header or footer band, which shrinks the body). If a page now
+    // overflows, paginate again with these numbers in place, until they stop changing.
+    const overflowing = pages.some((page) => {
+      const body = page.querySelector("[data-paged-react-page-body]");
+      return (
+        body !== null &&
+        page.querySelector("[data-paged-react-target-page]") !== null &&
+        body.scrollHeight > body.clientHeight
+      );
+    });
+    const changed =
+      targetPages.size !== knownTargets.size ||
+      Array.from(targetPages).some(([href, page]) => knownTargets.get(href) !== page);
+    if (!overflowing || !changed || pass === MAX_PAGINATION_PASSES || ctx.signal?.aborted) {
+      return pages;
+    }
+    knownTargets = targetPages;
   }
 }
 
-async function paginateSegments(ctx: PaginateDocumentContext): Promise<HTMLElement[]> {
+/**
+ * Writes the page numbers into PageNumber, TotalPages and TargetPageNumber spans, once, after
+ * pagination. Returns each target's page, keyed by the span's href.
+ */
+function fillPageNumbers(pages: HTMLElement[]) {
+  const pageOfId = new Map<string, number>();
+  for (const [index, page] of pages.entries()) {
+    // At scale 1 the page element is the segment clone itself, carrying the segment's id.
+    if (page.id && !pageOfId.has(page.id)) pageOfId.set(page.id, index + 1);
+    for (const element of Array.from(page.querySelectorAll("[id]"))) {
+      if (!pageOfId.has(element.id)) pageOfId.set(element.id, index + 1);
+    }
+    for (const span of Array.from(page.querySelectorAll("[data-paged-react-page-number]"))) {
+      span.textContent = String(index + 1);
+    }
+    for (const span of Array.from(page.querySelectorAll("[data-paged-react-total-pages]"))) {
+      span.textContent = String(pages.length);
+    }
+  }
+
+  const targetPages = new Map<string, string>();
+  for (const page of pages) {
+    for (const span of Array.from(page.querySelectorAll("[data-paged-react-target-page]"))) {
+      const href = span.getAttribute("data-paged-react-target-page");
+      if (href === null || !href.startsWith("#")) continue;
+      // Like a browser: the fragment as written first, then percent-decoded. A malformed escape
+      // (id="100%") leaves the reference unresolved instead of failing the whole document.
+      let target = pageOfId.get(href.slice(1));
+      if (target === undefined) {
+        try {
+          target = pageOfId.get(decodeURIComponent(href.slice(1)));
+        } catch {
+          continue;
+        }
+      }
+      if (target === undefined) continue;
+      span.textContent = String(target);
+      targetPages.set(href, String(target));
+    }
+  }
+  return targetPages;
+}
+
+async function paginateSegments(
+  ctx: PaginateDocumentContext,
+  targetPages: Map<string, string>,
+): Promise<HTMLElement[]> {
   const { sourceRoot, pagesRoot, signal, options } = ctx;
   const pages: HTMLElement[] = [];
   const scale = options?.scale ?? 1;
@@ -53,6 +117,16 @@ async function paginateSegments(ctx: PaginateDocumentContext): Promise<HTMLEleme
   if (signal?.aborted) return pages;
 
   const sourceRootClone = connectedClone(sourceRoot);
+
+  // Page numbers are written after pagination; measure with a digit in place (or a target page
+  // already known from a previous pass) so headers, footers and contents lines keep their size.
+  for (const span of Array.from(sourceRootClone.querySelectorAll(PAGE_NUMBER_SELECTOR))) {
+    span.textContent = "0";
+    const href = span.getAttribute("data-paged-react-target-page");
+    if (href === null) continue;
+    const known = targetPages.get(href);
+    if (known !== undefined) span.textContent = known;
+  }
 
   const segments = Array.from(
     sourceRootClone.querySelectorAll(":scope > [data-paged-react-segment-source]"),

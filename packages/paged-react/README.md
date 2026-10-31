@@ -156,6 +156,7 @@ The package CSS handles the document structure. Add this optional CSS in your ap
 - `PageBreak`: starts following content on a new page.
 - `PageNumber`: renders the current page number.
 - `TotalPages`: renders the total number of generated pages.
+- `TargetPageNumber`: renders the page another element starts on, for a table of contents.
 - `Watermark`: renders a watermark inside one document segment.
 - `pageSizes`: built-in page sizes, including A-series, B4, B5, Letter, Legal, and Ledger.
 
@@ -177,13 +178,37 @@ Use `Watermark` as a direct child of `Document.Segment` for static page decorati
 </Document>
 ```
 
-Use `PageNumber` and `TotalPages` anywhere in document content, including headers, footers, and watermarks. They render as spans and accept normal span props.
+Use `PageNumber` and `TotalPages` anywhere in document content, including headers, footers, and watermarks. They render as spans and accept normal span props. The numbers are written into them as text once pagination is done (earlier versions used CSS counters in `::before`, so styles that targeted `::before` no longer apply).
 
 ```tsx
 <Document.Footer>
   Page <PageNumber /> of <TotalPages />
 </Document.Footer>
 ```
+
+## Table of Contents
+
+`TargetPageNumber` renders the page that the element with the given `id` starts on.
+
+```tsx
+<Document.Body>
+  <nav>
+    {chapters.map((chapter) => (
+      <a key={chapter.id} href={`#${chapter.id}`}>
+        {chapter.title} <TargetPageNumber href={`#${chapter.id}`} />
+      </a>
+    ))}
+  </nav>
+  {chapters.map((chapter) => (
+    <section key={chapter.id}>
+      <h2 id={chapter.id}>{chapter.title}</h2>
+      {chapter.content}
+    </section>
+  ))}
+</Document.Body>
+```
+
+Give the number a fixed width (for example `display: inline-block; width: 3ch; font-variant-numeric: tabular-nums`) so a longer number does not rewrap its line. If a number does rewrap a line and a page overflows, the document is paginated again with the numbers in place (up to three passes). A target that is not in the document keeps the placeholder `0`.
 
 ## Tables
 

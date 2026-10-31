@@ -425,28 +425,85 @@ describe("paginateDocument", () => {
     );
   });
 
-  it("switches page counters back on once pagination is done", async () => {
+  it("writes page numbers, total pages and target pages as text after pagination", async () => {
     const sourceRoot = document.createElement("div");
     const pagesRoot = document.createElement("div");
     const segment = document.createElement("div");
+    const footer = document.createElement("div");
     const body = document.createElement("div");
-    const paragraph = document.createElement("p");
+    const contents = document.createElement("p");
+    const filler = document.createElement("p");
+    const chapter = document.createElement("h2");
 
     segment.setAttribute("data-paged-react-segment-source", "");
     segment.setAttribute("data-paged-react-page-width", "100px");
     segment.setAttribute("data-paged-react-page-height", "100px");
+    footer.setAttribute("data-paged-react-footer-source", "");
+    footer.innerHTML =
+      'Page <span data-paged-react-page-number=""></span> of <span data-paged-react-total-pages=""></span>';
     body.setAttribute("data-paged-react-body-source", "");
-    paragraph.setAttribute("data-test-height", "20");
-    paragraph.textContent = "Only page";
-    body.append(paragraph);
-    segment.append(body);
+    contents.setAttribute("data-test-height", "20");
+    contents.innerHTML = 'Chapter on <span data-paged-react-target-page="#chapter"></span>';
+    filler.setAttribute("data-test-height", "70");
+    filler.style.breakInside = "avoid";
+    filler.textContent = "Filler";
+    chapter.id = "chapter";
+    chapter.setAttribute("data-test-height", "40");
+    chapter.style.breakInside = "avoid";
+    chapter.textContent = "Chapter";
+    body.append(contents, filler, chapter);
+    segment.append(body, footer);
     sourceRoot.append(segment);
     document.body.append(sourceRoot, pagesRoot);
 
-    const pagination = paginateDocument({ sourceRoot, pagesRoot });
-    expect(pagesRoot.hasAttribute("data-paged-react-paginating")).toBe(true);
-    await pagination;
-    expect(pagesRoot.hasAttribute("data-paged-react-paginating")).toBe(false);
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages).toHaveLength(2);
+    expect(pages.map((page) => page.querySelector("[data-paged-react-page-footer]")?.textContent)).toEqual([
+      "Page 1 of 2",
+      "Page 2 of 2",
+    ]);
+    expect(pages[0].querySelector("[data-paged-react-target-page]")?.textContent).toBe("2");
+  });
+
+  it("resolves target pages for a segment id and for an id with a literal percent sign", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const first = document.createElement("div");
+    const firstBody = document.createElement("div");
+    const second = document.createElement("div");
+    const secondBody = document.createElement("div");
+    const contents = document.createElement("p");
+    const heading = document.createElement("h2");
+
+    for (const segment of [first, second]) {
+      segment.setAttribute("data-paged-react-segment-source", "");
+      segment.setAttribute("data-paged-react-page-width", "100px");
+      segment.setAttribute("data-paged-react-page-height", "100px");
+    }
+    second.id = "later";
+    firstBody.setAttribute("data-paged-react-body-source", "");
+    secondBody.setAttribute("data-paged-react-body-source", "");
+    contents.setAttribute("data-test-height", "20");
+    contents.innerHTML =
+      '<span data-paged-react-target-page="#later"></span> <span data-paged-react-target-page="#100%"></span>';
+    heading.id = "100%";
+    heading.setAttribute("data-test-height", "20");
+    heading.textContent = "Later";
+    firstBody.append(contents);
+    secondBody.append(heading);
+    first.append(firstBody);
+    second.append(secondBody);
+    sourceRoot.append(first, second);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages).toHaveLength(2);
+    expect(Array.from(pages[0].querySelectorAll("[data-paged-react-target-page]"), (span) => span.textContent)).toEqual([
+      "2",
+      "2",
+    ]);
   });
 
   it("rejects scale values outside the browser print range", async () => {
