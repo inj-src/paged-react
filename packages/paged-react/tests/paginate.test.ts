@@ -466,6 +466,46 @@ describe("paginateDocument", () => {
     expect(pages[0].querySelector("[data-paged-react-target-page]")?.textContent).toBe("2");
   });
 
+  it("resolves target pages for a segment id and for an id with a literal percent sign", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const first = document.createElement("div");
+    const firstBody = document.createElement("div");
+    const second = document.createElement("div");
+    const secondBody = document.createElement("div");
+    const contents = document.createElement("p");
+    const heading = document.createElement("h2");
+
+    for (const segment of [first, second]) {
+      segment.setAttribute("data-paged-react-segment-source", "");
+      segment.setAttribute("data-paged-react-page-width", "100px");
+      segment.setAttribute("data-paged-react-page-height", "100px");
+    }
+    second.id = "later";
+    firstBody.setAttribute("data-paged-react-body-source", "");
+    secondBody.setAttribute("data-paged-react-body-source", "");
+    contents.setAttribute("data-test-height", "20");
+    contents.innerHTML =
+      '<span data-paged-react-target-page="#later"></span> <span data-paged-react-target-page="#100%"></span>';
+    heading.id = "100%";
+    heading.setAttribute("data-test-height", "20");
+    heading.textContent = "Later";
+    firstBody.append(contents);
+    secondBody.append(heading);
+    first.append(firstBody);
+    second.append(secondBody);
+    sourceRoot.append(first, second);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages).toHaveLength(2);
+    expect(Array.from(pages[0].querySelectorAll("[data-paged-react-target-page]"), (span) => span.textContent)).toEqual([
+      "2",
+      "2",
+    ]);
+  });
+
   it("rejects scale values outside the browser print range", async () => {
     const sourceRoot = document.createElement("div");
     const pagesRoot = document.createElement("div");

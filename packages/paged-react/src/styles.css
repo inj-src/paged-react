@@ -57,6 +57,14 @@
   overflow: hidden;
 }
 
+/* Page numbers are written in after pagination: keep each on one line so it is never split
+   across lines or pages, and a longer number cannot leave part of itself on another page. */
+[data-paged-react-page-number],
+[data-paged-react-total-pages],
+[data-paged-react-target-page] {
+  white-space: nowrap;
+}
+
 [data-paged-react-watermark-source] {
   position: absolute;
   inset: 0;

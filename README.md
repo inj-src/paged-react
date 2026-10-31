@@ -169,7 +169,7 @@ Use `Watermark` as a direct child of `Document.Segment` for static page decorati
 </Document>
 ```
 
-Use `PageNumber` and `TotalPages` anywhere in document content, including headers, footers, and watermarks. They render as spans and accept normal span props. The numbers are written into them as text once pagination is done.
+Use `PageNumber` and `TotalPages` anywhere in document content, including headers, footers, and watermarks. They render as spans and accept normal span props. The numbers are written into them as text once pagination is done (earlier versions used CSS counters in `::before`, so styles that targeted `::before` no longer apply).
 
 ```tsx
 <Document.Footer>
@@ -199,7 +199,7 @@ Use `PageNumber` and `TotalPages` anywhere in document content, including header
 </Document.Body>
 ```
 
-Give the number a fixed width (for example `width: 3ch; font-variant-numeric: tabular-nums`) so a longer number does not rewrap its line. If a number does rewrap a line and the page overflows, the document is paginated once more with the numbers in place.
+Give the number a fixed width (for example `display: inline-block; width: 3ch; font-variant-numeric: tabular-nums`) so a longer number does not rewrap its line. If a number does rewrap a line and a page overflows, the document is paginated again with the numbers in place (up to three passes). A target that is not in the document keeps the placeholder `0`.
 
 ## Tables
 
