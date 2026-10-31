@@ -193,6 +193,17 @@ Page numbers run on across segments. Set `pageNumberStart` on a `Document.Segmen
 </Document.Segment>
 ```
 
+## Header and Footer Placement
+
+By default the header and footer sit inside the page margins, right above and below the body. Set `bandPlacement="margin"` on `Document.Segment` to put them in the top and bottom margins instead, from the page edge, as Chrome's print headers do. The body then starts and ends exactly at the margins; a header or footer taller than its margin grows that margin.
+
+```tsx
+<Document.Segment pageSize={pageSizes.A4} pageMargins={{ top: "20mm", right: "15mm", bottom: "15mm", left: "15mm" }} bandPlacement="margin">
+  <Document.Header>Annual report</Document.Header>
+  <Document.Body>Report content</Document.Body>
+</Document.Segment>
+```
+
 ## First, Odd, and Even Pages
 
 Add a `Document.Header` or `Document.Footer` with `pages="first"`, `"odd"`, or `"even"` next to the default one. A `first` variant is used on the segment's first page, then `odd`/`even` by page number, then the default. An empty variant leaves that page without a header or footer. Each page's body gets the height its own header and footer leave.

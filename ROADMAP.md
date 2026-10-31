@@ -7,19 +7,15 @@ browser, then let the browser print).
 
 Already done: orphans/widows, `break-*: avoid`, keep-together, repeated `<thead>`/`<tfoot>`,
 rowspans across pages, page numbers as text with `format` and `pageNumberStart`,
-`TargetPageNumber` for tables of contents, and first/odd/even header and footer variants.
+`TargetPageNumber` for tables of contents, first/odd/even header and footer variants, and header
+and footer placement in the margins (`bandPlacement="margin"`, growing the margin to fit).
 
 ## Pages and bands
 
-- **Header placement in the margin.** Chrome's print headers and takumi draw the header inside the
-  top margin, from the top edge of the page; paged-react places it inside the page padding, right
-  above the body. An option (for example `bandPlacement="margin"`) could position the bands in the
-  margins like they do. Open question: whether the margin grows to fit a taller band (takumi does).
 - **Last-page header/footer** (takumi: `last`). Needs to know a page is the last before laying it
   out: lay out with the tallest band, as takumi does, or paginate again.
 - **Start a segment on a right-hand page** (Prince: `break-before: right` / `recto`), inserting a
   blank page when needed; and a style hook for blank pages (`:blank`).
-- **Margins that grow to fit the bands** (takumi: automatic margins).
 - **Page ranges**: render only some pages (takumi: `page_ranges`).
 
 ## Generated content
