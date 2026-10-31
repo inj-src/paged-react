@@ -556,6 +556,38 @@ describe("paginateDocument", () => {
     ]);
   });
 
+  it("puts header and footer in the page margins with bandPlacement margin", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const header = document.createElement("div");
+    const body = document.createElement("div");
+    const paragraph = document.createElement("p");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    segment.setAttribute("data-paged-react-band-placement", "margin");
+    segment.style.padding = "20px 5px 10px";
+    header.setAttribute("data-paged-react-header-source", "");
+    header.textContent = "Head";
+    body.setAttribute("data-paged-react-body-source", "");
+    paragraph.setAttribute("data-test-height", "20");
+    paragraph.textContent = "Body";
+    body.append(paragraph);
+    segment.append(header, body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const [page] = await paginateDocument({ sourceRoot, pagesRoot });
+
+    // The margins become the minimum height of the header and footer rows.
+    expect(page?.style.paddingTop).toBe("0px");
+    expect(page?.style.paddingBottom).toBe("0px");
+    expect(page?.style.gridTemplateRows).toBe("minmax(20px, auto) minmax(0, 1fr) minmax(10px, auto)");
+    expect((page?.querySelector("[data-paged-react-page-header]") as HTMLElement | null)?.style.alignSelf).toBe("start");
+  });
+
   it("rejects scale values outside the browser print range", async () => {
     const sourceRoot = document.createElement("div");
     const pagesRoot = document.createElement("div");

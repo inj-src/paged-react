@@ -62,6 +62,12 @@ export type DocumentSegmentProps = SlotProps & {
   repeatTableHeader?: boolean;
   /** The page number of this segment's first page; later segments continue from it. */
   pageNumberStart?: number;
+  /**
+   * Where header and footer sit. `"content"` (default): inside the page margins, right above and
+   * below the body. `"margin"`: in the top and bottom margins from the page edge, like Chrome's print
+   * headers; a band taller than its margin grows the margin.
+   */
+  bandPlacement?: "content" | "margin";
 };
 
 /** Pages a header or footer variant applies to; it overrides the default header or footer there. */

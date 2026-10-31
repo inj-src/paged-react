@@ -217,6 +217,19 @@ async function paginateSegments(
     const footerHeight = footerSlot?.offsetHeight ?? 0;
 
     const segBox = getBoxStyle(segment);
+
+    // bandPlacement="margin": header and footer go in the top and bottom margins, from the page
+    // edge, like Chrome's print headers and takumi. Their rows are at least the margins tall, so the
+    // body starts at the margin, and a taller band pushes it in (the margin grows).
+    const marginBands = segment.getAttribute("data-paged-react-band-placement") === "margin";
+    const placeBands = (created: ReturnType<typeof createPage>) => {
+      if (!marginBands) return;
+      created.content.style.paddingTop = "0";
+      created.content.style.paddingBottom = "0";
+      created.content.style.gridTemplateRows = `minmax(${segBox.paddingTop}px, auto) minmax(0, 1fr) minmax(${segBox.paddingBottom}px, auto)`;
+      created.header.style.alignSelf = "start";
+      created.footer.style.alignSelf = "end";
+    };
     const segmentHeightOffset =
       segBox.paddingTop + segBox.paddingBottom + segBox.borderBottomWidth + segBox.borderTopWidth;
 
@@ -278,6 +291,7 @@ async function paginateSegments(
       if (scale !== 1) {
         measurementPage.content.style.setProperty("scale", "1");
       }
+      placeBands(measurementPage);
       cloneChildrenInto(measurementPage.header, bands.header);
       cloneChildrenInto(measurementPage.footer, bands.footer);
 
@@ -328,6 +342,7 @@ async function paginateSegments(
         pageNumber: segmentIndex + 1,
       });
 
+      placeBands(page);
       page.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
       page.page.setAttribute("data-paged-react-body-segment-index", String(bodyIndex));
       page.page.setAttribute("data-paged-react-number", String(firstPageNumber + bodyIndex));
