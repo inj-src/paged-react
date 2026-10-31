@@ -13,7 +13,8 @@ export type ResolvedPageSize = {
 
 /** Returns a direct segment slot without walking into nested child documents. */
 export function getDirectSlot(parent: Element, attribute: "header" | "body" | "footer"): HTMLDivElement | null {
-  return parent.querySelector(`:scope > [data-paged-react-${attribute}-source]`);
+  // Variants for some pages only (`pages="first"` etc.) are not the default slot.
+  return parent.querySelector(`:scope > [data-paged-react-${attribute}-source]:not([data-paged-react-pages])`);
 }
 
 /** Clones all child nodes from a source slot into a target element. */

@@ -17,7 +17,7 @@ type DocumentComponent = ReturnType<typeof forwardRef<HTMLDivElement, DocumentPr
 };
 
 export const DocumentSegment = forwardRef<HTMLDivElement, DocumentSegmentProps>(function DocumentSegment(
-  { children, pageSize, pageMargins, repeatTableHeader, style, ...props },
+  { children, pageSize, pageMargins, repeatTableHeader, pageNumberStart, style, ...props },
   ref,
 ) {
   const resolvedPageSize = resolvePageSize(pageSize);
@@ -40,6 +40,7 @@ export const DocumentSegment = forwardRef<HTMLDivElement, DocumentSegmentProps>(
       {...props}
       ref={ref}
       data-paged-react-repeat-table-header={String(repeatTableHeader === true)}
+      data-paged-react-page-number-start={pageNumberStart}
       data-paged-react-page-height={resolvedPageSize.height}
       data-paged-react-page-width={resolvedPageSize.width}
       data-paged-react-segment-source=""
@@ -55,11 +56,11 @@ export const DocumentSegment = forwardRef<HTMLDivElement, DocumentSegmentProps>(
 });
 
 export const DocumentHeader = forwardRef<HTMLDivElement, DocumentHeaderProps>(function DocumentHeader(
-  { children, ...props },
+  { children, pages, ...props },
   ref,
 ) {
   return (
-    <div {...props} ref={ref} data-paged-react-header-source="">
+    <div {...props} ref={ref} data-paged-react-header-source="" data-paged-react-pages={pages}>
       {children}
     </div>
   );
@@ -77,11 +78,11 @@ export const DocumentBody = forwardRef<HTMLDivElement, DocumentBodyProps>(functi
 });
 
 export const DocumentFooter = forwardRef<HTMLDivElement, DocumentFooterProps>(function DocumentFooter(
-  { children, ...props },
+  { children, pages, ...props },
   ref,
 ) {
   return (
-    <div {...props} ref={ref} data-paged-react-footer-source="">
+    <div {...props} ref={ref} data-paged-react-footer-source="" data-paged-react-pages={pages}>
       {children}
     </div>
   );

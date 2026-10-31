@@ -150,9 +150,9 @@ The package CSS handles the document structure. Add this optional CSS in your ap
 
 - `Document`: the root component. Attach your print ref here.
 - `Document.Segment`: one paginated section with its own page size.
-- `Document.Header`: repeated at the top of every generated page in the segment.
+- `Document.Header`: repeated at the top of every generated page in the segment; `pages="first" | "odd" | "even"` adds a variant for those pages.
 - `Document.Body`: the content that gets split across pages.
-- `Document.Footer`: repeated at the bottom of every generated page in the segment.
+- `Document.Footer`: repeated at the bottom of every generated page in the segment; takes the same `pages` variants.
 - `PageBreak`: starts following content on a new page.
 - `PageNumber`: renders the current page number.
 - `TotalPages`: renders the total number of generated pages.
@@ -184,6 +184,40 @@ Use `PageNumber` and `TotalPages` anywhere in document content, including header
 <Document.Footer>
   Page <PageNumber /> of <TotalPages />
 </Document.Footer>
+```
+
+Pass `format` to write a number in a CSS counter style: `decimal` (default), `decimal-leading-zero`, `lower-roman`, `upper-roman`, `lower-alpha`, `upper-alpha`, or native digits such as `bengali`, `devanagari`, `arabic-indic`, `persian`, `thai`. Numbers outside a style's range are written in decimal.
+
+Page numbers run on across segments. Set `pageNumberStart` on a `Document.Segment` to restart them, for example after roman-numbered front matter. `TotalPages` always counts every page.
+
+```tsx
+<Document.Segment pageSize={pageSizes.A4} pageNumberStart={1}>
+  <Document.Footer>
+    <PageNumber format="lower-roman" />
+  </Document.Footer>
+  <Document.Body>Preface</Document.Body>
+</Document.Segment>
+<Document.Segment pageSize={pageSizes.A4} pageNumberStart={1}>
+  <Document.Body>Chapter 1</Document.Body>
+</Document.Segment>
+```
+
+## First, Odd, and Even Pages
+
+Add a `Document.Header` or `Document.Footer` with `pages="first"`, `"odd"`, or `"even"` next to the default one. A `first` variant is used on the segment's first page, then `odd`/`even` by page number, then the default. An empty variant leaves that page without a header or footer. Each page's body gets the height its own header and footer leave.
+
+```tsx
+<Document.Segment pageSize={pageSizes.A4}>
+  <Document.Header>Annual report 2026</Document.Header>
+  <Document.Header pages="first" />
+  <Document.Footer pages="odd" style={{ textAlign: "right" }}>
+    <PageNumber />
+  </Document.Footer>
+  <Document.Footer pages="even">
+    <PageNumber />
+  </Document.Footer>
+  <Document.Body>Report content</Document.Body>
+</Document.Segment>
 ```
 
 ## Table of Contents
