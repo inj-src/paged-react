@@ -28,28 +28,31 @@ const MAX_PAGINATION_PASSES = 3;
 
 export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HTMLElement[]> {
   let knownTargets = new Map<string, string>();
+  let knownTotal: number | null = null;
   for (let pass = 1; ; pass++) {
-    const pages = await paginateSegments(ctx, knownTargets);
+    const pages = await paginateSegments(ctx, knownTargets, knownTotal);
     const targetPages = fillPageNumbers(pages);
 
-    // A filled-in target page number can be wider than its placeholder and rewrap its line (a
-    // table of contents entry, or a header or footer band, which shrinks the body). If a page now
-    // overflows, paginate again with these numbers in place, until they stop changing.
+    // A filled-in target page or total page count can be wider than its placeholder and rewrap its
+    // line (a table of contents entry, or a header or footer band, which shrinks the body). If a
+    // page now overflows, paginate again with these numbers in place, until they stop changing.
     const overflowing = pages.some((page) => {
       const body = page.querySelector("[data-paged-react-page-body]");
       return (
         body !== null &&
-        page.querySelector("[data-paged-react-target-page]") !== null &&
+        page.querySelector("[data-paged-react-target-page], [data-paged-react-total-pages]") !== null &&
         body.scrollHeight > body.clientHeight
       );
     });
     const changed =
+      knownTotal !== pages.length ||
       targetPages.size !== knownTargets.size ||
       Array.from(targetPages).some(([href, page]) => knownTargets.get(href) !== page);
     if (!overflowing || !changed || pass === MAX_PAGINATION_PASSES || ctx.signal?.aborted) {
       return pages;
     }
     knownTargets = targetPages;
+    knownTotal = pages.length;
   }
 }
 
@@ -103,6 +106,7 @@ function fillPageNumbers(pages: HTMLElement[]) {
 async function paginateSegments(
   ctx: PaginateDocumentContext,
   targetPages: Map<string, string>,
+  totalPages: number | null,
 ): Promise<HTMLElement[]> {
   const { sourceRoot, pagesRoot, signal, options } = ctx;
   const pages: HTMLElement[] = [];
@@ -127,6 +131,9 @@ async function paginateSegments(
   // already known from a previous pass) so headers, footers and contents lines keep their size.
   for (const span of Array.from(sourceRootClone.querySelectorAll(PAGE_NUMBER_SELECTOR))) {
     span.textContent = "0";
+    if (totalPages !== null && span.hasAttribute("data-paged-react-total-pages")) {
+      span.textContent = formatPageNumber(totalPages, span.getAttribute("data-paged-react-format"));
+    }
     const href = span.getAttribute("data-paged-react-target-page");
     if (href === null) continue;
     const known = targetPages.get(href);
@@ -213,8 +220,6 @@ async function paginateSegments(
       return child.hasAttribute("data-paged-react-watermark-source");
     });
 
-    const headerHeight = headerSlot?.offsetHeight ?? 0;
-    const footerHeight = footerSlot?.offsetHeight ?? 0;
 
     const segBox = getBoxStyle(segment);
 
@@ -229,12 +234,36 @@ async function paginateSegments(
       created.content.style.gridTemplateRows = `minmax(${segBox.paddingTop}px, auto) minmax(0, 1fr) minmax(${segBox.paddingBottom}px, auto)`;
       created.header.style.alignSelf = "start";
       created.footer.style.alignSelf = "end";
+      // Explicit rows: a hidden or empty band must not let the body move up into its row.
+      created.header.style.gridRow = "1";
+      created.body.style.gridRow = "2";
+      created.footer.style.gridRow = "3";
+      for (const band of [created.header, created.footer]) {
+        if (band.ownerDocument.defaultView?.getComputedStyle(band).display === "contents") {
+          band.style.display = "block";
+        }
+      }
     };
     const segmentHeightOffset =
       segBox.paddingTop + segBox.paddingBottom + segBox.borderBottomWidth + segBox.borderTopWidth;
 
-    const calculatedMaxBodyHeight =
-      contentPageSizePixels.height - headerHeight - footerHeight - segmentHeightOffset;
+    // Body height a header and footer leave, for the size check and for layout-less DOMs. In the
+    // margins a band only takes room beyond its margin.
+    const bodyHeightBetween = (header: HTMLElement | null, footer: HTMLElement | null) => {
+      const top = header?.offsetHeight ?? 0;
+      const bottom = footer?.offsetHeight ?? 0;
+      if (marginBands) {
+        return (
+          contentPageSizePixels.height -
+          segBox.borderTopWidth -
+          segBox.borderBottomWidth -
+          Math.max(segBox.paddingTop, top) -
+          Math.max(segBox.paddingBottom, bottom)
+        );
+      }
+      return contentPageSizePixels.height - top - bottom - segmentHeightOffset;
+    };
+    const calculatedMaxBodyHeight = bodyHeightBetween(headerSlot, footerSlot);
 
     if (calculatedMaxBodyHeight <= 0) {
       console.warn(
@@ -266,12 +295,25 @@ async function paginateSegments(
 
     // The body height a page has depends on its header and footer: measure each combination once,
     // in a hidden page that also checks candidate pages for overflow.
-    const measurements = new Map<string, { page: HTMLElement; maxBodyHeight: number; measurementBody: HTMLElement | null }>();
+    const measurements = new Map<
+      string,
+      { page: HTMLElement; maxBodyHeight: number; measurementBody: HTMLElement | null; numbers: Element[] }
+    >();
     const pageBox = (bodyIndex: number) => {
       const bands = bandsFor(bodyIndex);
       const key = `${bands.header?.getAttribute("data-paged-react-pages")}|${bands.footer?.getAttribute("data-paged-react-pages")}`;
       const known = measurements.get(key);
-      if (known) return known;
+      if (known) {
+        // The bands hold this page's own number while measuring: a longer one (e.g. LXXXVIII)
+        // can wrap its band and leave the body less room.
+        if (known.numbers.length && known.measurementBody) {
+          for (const span of known.numbers) {
+            span.textContent = formatPageNumber(firstPageNumber + bodyIndex, span.getAttribute("data-paged-react-format"));
+          }
+          known.maxBodyHeight = known.measurementBody.getBoundingClientRect().height;
+        }
+        return known;
+      }
 
       const measurementPage = createPage({
         segment,
@@ -295,13 +337,18 @@ async function paginateSegments(
       cloneChildrenInto(measurementPage.header, bands.header);
       cloneChildrenInto(measurementPage.footer, bands.footer);
 
+      const numbers = Array.from(measurementPage.page.querySelectorAll("[data-paged-react-page-number]"));
+      for (const span of numbers) {
+        span.textContent = formatPageNumber(firstPageNumber + bodyIndex, span.getAttribute("data-paged-react-format"));
+      }
       const measured = {
         page: measurementPage.page,
         maxBodyHeight: measurementPage.body.getBoundingClientRect().height,
         measurementBody: measurementPage.body as HTMLElement | null,
+        numbers,
       };
       if (measured.maxBodyHeight <= 0) {
-        measured.maxBodyHeight = calculatedMaxBodyHeight;
+        measured.maxBodyHeight = bodyHeightBetween(bands.header, bands.footer);
         measurementPage.page.remove();
         measured.measurementBody = null;
       }

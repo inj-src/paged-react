@@ -586,6 +586,8 @@ describe("paginateDocument", () => {
     expect(page?.style.paddingBottom).toBe("0px");
     expect(page?.style.gridTemplateRows).toBe("minmax(20px, auto) minmax(0, 1fr) minmax(10px, auto)");
     expect((page?.querySelector("[data-paged-react-page-header]") as HTMLElement | null)?.style.alignSelf).toBe("start");
+    // The body keeps its own row even when a band is hidden or empty.
+    expect((page?.querySelector("[data-paged-react-page-body]") as HTMLElement | null)?.style.gridRow).toBe("2");
   });
 
   it("rejects scale values outside the browser print range", async () => {
