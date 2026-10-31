@@ -1,24 +1,33 @@
-export function canBreakElement(element: Element): boolean {
+const MONOLITHIC_TAGS = [
+  "SVG",
+  "IMG",
+  "CANVAS",
+  "VIDEO",
+  "IFRAME",
+  "OBJECT",
+  "EMBED",
+  "INPUT",
+  "TEXTAREA",
+  "SELECT",
+  "BUTTON",
+];
+
+/** Replaced content, form controls and non-HTML elements (SVG): they cannot be split at all. */
+export function isMonolithic(element: Element): boolean {
   const view = element.ownerDocument.defaultView;
-  if (!view) {
+  if (!view || !(element instanceof view.HTMLElement)) {
+    return true;
+  }
+
+  return MONOLITHIC_TAGS.includes(element.tagName.toUpperCase());
+}
+
+export function canBreakElement(element: Element): boolean {
+  if (isMonolithic(element)) {
     return false;
   }
 
-  if (!(element instanceof view.HTMLElement)) {
-    return false;
-  }
-
-  const tagName = element.tagName.toUpperCase();
-
-  if (
-    ["SVG", "IMG", "CANVAS", "VIDEO", "IFRAME", "OBJECT", "EMBED", "INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(
-      tagName,
-    )
-  ) {
-    return false;
-  }
-
-  const computedStyle = view.getComputedStyle(element);
+  const computedStyle = (element.ownerDocument.defaultView as Window).getComputedStyle(element);
 
   if (["avoid", "avoid-page", "avoid-column"].includes(computedStyle.breakInside)) {
     return false;

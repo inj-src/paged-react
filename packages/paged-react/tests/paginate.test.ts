@@ -18,6 +18,17 @@ function parsePx(value: string) {
   return Number.parseFloat(value) || 0;
 }
 
+/** Mock layout: flex rows and grids place their children side by side (one row of columns). */
+function isSideBySide(element: Element) {
+  return (
+    element instanceof HTMLElement &&
+    ((element.style.display === "flex" &&
+      element.style.flexDirection !== "column" &&
+      element.style.flexDirection !== "column-reverse") ||
+      element.style.display === "grid")
+  );
+}
+
 function getElementHeight(element: Element): number {
   const generatedHeight = element.getAttribute("data-test-generated-height");
 
@@ -39,12 +50,7 @@ function getElementHeight(element: Element): number {
 
   const childHeights = Array.from(element.children, (child) => getElementHeight(child));
 
-  if (
-    element instanceof HTMLElement &&
-    element.style.display === "flex" &&
-    element.style.flexDirection !== "column" &&
-    element.style.flexDirection !== "column-reverse"
-  ) {
+  if (isSideBySide(element)) {
     return Math.max(0, ...childHeights);
   }
 
@@ -73,12 +79,7 @@ function getElementTop(element: Element): number {
   }
 
   let siblingTop = 0;
-  if (
-    !(parent instanceof HTMLElement) ||
-    parent.style.display !== "flex" ||
-    parent.style.flexDirection === "column" ||
-    parent.style.flexDirection === "column-reverse"
-  ) {
+  if (!isSideBySide(parent)) {
     siblingTop = Array.from(parent.children)
       .slice(0, Array.from(parent.children).indexOf(element))
       .reduce((sum, sibling) => sum + getElementHeight(sibling), 0);
@@ -170,6 +171,180 @@ describe("paginateDocument", () => {
     expect(pages[1].querySelectorAll("tbody tr")).toHaveLength(1);
   });
 
+  it("keeps a table header only on the first fragment without repeatTableHeader", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const tbody = document.createElement("tbody");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+    thead.innerHTML = '<tr data-test-height="20"><th>Head</th></tr>';
+    for (const index of [1, 2, 3, 4]) {
+      const row = document.createElement("tr");
+      row.setAttribute("data-test-height", "25");
+      row.style.breakInside = "avoid";
+      row.innerHTML = `<td>Row ${index}</td>`;
+      tbody.append(row);
+    }
+    table.append(thead, tbody);
+    body.append(table);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages.map((page) => page.textContent)).toEqual(["HeadRow 1Row 2Row 3", "Row 4"]);
+  });
+
+  it("repeats a table header on every fragment with repeatTableHeader", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const tbody = document.createElement("tbody");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    segment.setAttribute("data-paged-react-repeat-table-header", "true");
+    body.setAttribute("data-paged-react-body-source", "");
+    thead.innerHTML = '<tr data-test-height="20"><th>Head</th></tr>';
+    for (const index of [1, 2, 3, 4]) {
+      const row = document.createElement("tr");
+      row.setAttribute("data-test-height", "25");
+      row.style.breakInside = "avoid";
+      row.innerHTML = `<td>Row ${index}</td>`;
+      tbody.append(row);
+    }
+    table.append(thead, tbody);
+    body.append(table);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages.map((page) => page.textContent)).toEqual(["HeadRow 1Row 2Row 3", "HeadRow 4"]);
+  });
+
+  it("keeps every row of a long fixed-layout table in order while windowing its rows", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const table = document.createElement("table");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+    // Long enough (12 pages) for the source to keep only a window of rows.
+    table.style.tableLayout = "fixed";
+    for (const group of [0, 1]) {
+      const tbody = document.createElement("tbody");
+      for (let index = 1; index <= 60; index++) {
+        const row = document.createElement("tr");
+        row.setAttribute("data-test-height", "10");
+        row.style.breakInside = "avoid";
+        row.innerHTML = `<td>R${group * 60 + index};</td>`;
+        tbody.append(row);
+      }
+      table.append(tbody);
+    }
+    body.append(table);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages).toHaveLength(12);
+    expect(pages.map((page) => page.querySelectorAll("tr").length)).toEqual(Array(12).fill(10));
+    expect(pages.map((page) => page.textContent).join("")).toBe(
+      Array.from({ length: 120 }, (_, index) => `R${index + 1};`).join(""),
+    );
+  });
+
+  it("repeats a table footer at the bottom of every fragment with repeatTableHeader", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const tbody = document.createElement("tbody");
+    const tfoot = document.createElement("tfoot");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    segment.setAttribute("data-paged-react-repeat-table-header", "true");
+    body.setAttribute("data-paged-react-body-source", "");
+    thead.innerHTML = '<tr data-test-height="20"><th>Head</th></tr>';
+    tfoot.innerHTML = '<tr data-test-height="20"><td>Foot</td></tr>';
+    for (const index of [1, 2, 3, 4]) {
+      const row = document.createElement("tr");
+      row.setAttribute("data-test-height", "25");
+      row.style.breakInside = "avoid";
+      row.innerHTML = `<td>Row ${index}</td>`;
+      tbody.append(row);
+    }
+    table.append(thead, tbody, tfoot);
+    body.append(table);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    // 100px page: header 20 + two 25px rows + footer 20 per fragment.
+    expect(pages.map((page) => page.textContent)).toEqual(["HeadRow 1Row 2Foot", "HeadRow 3Row 4Foot"]);
+  });
+
+  it("keeps a rowspan cell's column when its rows continue on the next page", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const table = document.createElement("table");
+    const tbody = document.createElement("tbody");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+    for (const index of [1, 2, 3, 4]) {
+      const row = document.createElement("tr");
+      row.setAttribute("data-test-height", "30");
+      row.style.breakInside = "avoid";
+      row.innerHTML = `${index === 1 ? '<td rowspan="4">Dept</td>' : ""}<td>Row ${index}</td>`;
+      tbody.append(row);
+    }
+    table.append(tbody);
+    body.append(table);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages.map((page) => page.textContent)).toEqual(["DeptRow 1Row 2Row 3", "Row 4"]);
+    // Row 4 still has the department column, as an empty continuation of the spanning cell.
+    const cells = pages[1].querySelector("tr")?.cells;
+    expect(cells?.length).toBe(2);
+    expect(cells?.[0]?.textContent).toBe("");
+    expect(cells?.[1]?.textContent).toBe("Row 4");
+  });
+
   it("overrides page size and margins for generated pages", async () => {
     const sourceRoot = document.createElement("div");
     const pagesRoot = document.createElement("div");
@@ -248,6 +423,30 @@ describe("paginateDocument", () => {
     expect(scaledContent?.style.getPropertyValue("--paged-react-page-margin-top")).toBe(
       "calc(4px / 0.5)",
     );
+  });
+
+  it("switches page counters back on once pagination is done", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const paragraph = document.createElement("p");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+    paragraph.setAttribute("data-test-height", "20");
+    paragraph.textContent = "Only page";
+    body.append(paragraph);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pagination = paginateDocument({ sourceRoot, pagesRoot });
+    expect(pagesRoot.hasAttribute("data-paged-react-paginating")).toBe(true);
+    await pagination;
+    expect(pagesRoot.hasAttribute("data-paged-react-paginating")).toBe(false);
   });
 
   it("rejects scale values outside the browser print range", async () => {
@@ -378,6 +577,145 @@ describe("paginateDocument", () => {
     expect(pages).toHaveLength(2);
     expect(pages[0].textContent).toBe("Left 1Right 1");
     expect(pages[1].textContent).toBe("Left 2Right 2");
+  });
+
+  it("continues to the next grid column when a column runs past the page", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const grid = document.createElement("section");
+    const left = document.createElement("div");
+    const right = document.createElement("div");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+    grid.style.display = "grid";
+
+    const item = (text: string, height: number) => {
+      const element = document.createElement("p");
+      element.setAttribute("data-test-height", String(height));
+      element.style.breakInside = "avoid";
+      element.textContent = text;
+      return element;
+    };
+    // An empty spacer crossing the page end puts "Left 3" entirely below the page window, so the
+    // left column's walk ends early; the right column still has to fill this page.
+    const spacer = document.createElement("div");
+    spacer.setAttribute("data-test-height", "20");
+
+    left.append(item("Left 1", 60), item("Left 2", 30), spacer, item("Left 3", 60));
+    right.append(item("Right 1", 60), item("Right 2", 60));
+    grid.append(left, right);
+    body.append(grid);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages).toHaveLength(2);
+    expect(pages[0].textContent).toBe("Left 1Left 2Right 1");
+    expect(pages[1].textContent).toBe("Left 3Right 2");
+  });
+
+  it("moves a break-after: avoid heading to the next page with the block it introduces", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+
+    const block = (tag: string, text: string, height: number) => {
+      const element = document.createElement(tag);
+      element.setAttribute("data-test-height", String(height));
+      element.style.breakInside = "avoid";
+      element.textContent = text;
+      return element;
+    };
+    const heading = block("h2", "Heading", 20);
+    heading.style.breakAfter = "avoid";
+
+    body.append(block("p", "Intro", 70), heading, block("p", "Body", 50));
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages).toHaveLength(2);
+    expect(pages[0].textContent).toBe("Intro");
+    expect(pages[1].textContent).toBe("HeadingBody");
+  });
+
+  it("splits a break-inside: avoid block taller than a page on a fresh page instead of clipping it", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+
+    const block = (text: string, height: number) => {
+      const element = document.createElement("p");
+      element.setAttribute("data-test-height", String(height));
+      element.style.breakInside = "avoid";
+      element.textContent = text;
+      return element;
+    };
+    const keep = document.createElement("div");
+    keep.style.breakInside = "avoid";
+    keep.append(block("One", 50), block("Two", 50), block("Three", 50));
+
+    body.append(block("Intro", 30), keep);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(pages.map((page) => page.textContent)).toEqual(["Intro", "OneTwo", "Three"]);
+  });
+
+  it("places an empty element only on the page where it fits", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const intro = document.createElement("p");
+    const spacer = document.createElement("div");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+    intro.setAttribute("data-test-height", "90");
+    intro.style.breakInside = "avoid";
+    intro.textContent = "Intro";
+    // Crosses the end of the first page: it belongs on the second page only.
+    spacer.className = "spacer";
+    spacer.setAttribute("data-test-height", "30");
+
+    body.append(intro, spacer);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages).toHaveLength(2);
+    expect(pages.map((page) => page.querySelectorAll(".spacer").length)).toEqual([0, 1]);
   });
 
   it("paginates children rendered through display contents wrappers", async () => {

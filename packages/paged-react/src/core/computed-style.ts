@@ -27,5 +27,9 @@ export function createComputedStyleCache() {
       styles.set(element, boxStyle);
       return boxStyle;
     },
+    /** Forget an element's style after pagination changed it. */
+    invalidate(element: Element) {
+      styles.delete(element);
+    },
   };
 }

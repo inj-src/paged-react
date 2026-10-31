@@ -197,15 +197,17 @@ Direct child `<table>` elements inside `Document.Body` can be split by row when 
 </Document.Segment>
 ```
 
-If a table has a `<thead>`, the first table fragment keeps that header even when `repeatTableHeader` is not set. Use `repeatTableHeader` on `Document.Segment` when continuation pages should also repeat the original `<thead>`.
+If a table has a `<thead>`, only the first table fragment shows it when `repeatTableHeader` is not set. Use `repeatTableHeader` on `Document.Segment` when continuation pages should also repeat the original `<thead>`; a `<tfoot>` is then repeated at the bottom of every fragment too, like Chrome prints it.
 
 ## Page Breaks
 
 Use `PageBreak` for an explicit new page. This is the supported way to force a page break.
 
-`page-break-inside: avoid` is supported as a keep-together hint. Use it when a block should move to the next page instead of being split across pages.
+`break-inside: avoid` / `page-break-inside: avoid` is supported as a keep-together hint. Use it when a block should move to the next page instead of being split across pages. A block taller than a page is still split, starting on a fresh page.
 
-`break-before`, `page-break-before`, `break-after`, and `page-break-after` are intentionally ignored. Use `PageBreak` so there is only one explicit way to force a new page.
+`break-before: avoid` and `break-after: avoid` keep blocks together (for example a heading with the paragraph after it), and `orphans` / `widows` set the minimum lines of a paragraph at the bottom and top of a page.
+
+Forcing values of `break-before`, `page-break-before`, `break-after`, and `page-break-after` (such as `page`) are intentionally ignored. Use `PageBreak` so there is only one explicit way to force a new page.
 
 ## Limitations
 
