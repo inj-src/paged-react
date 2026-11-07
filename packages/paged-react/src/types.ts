@@ -60,10 +60,23 @@ export type DocumentSegmentProps = SlotProps & {
   pageSize: PageSize;
   pageMargins?: PageMargins;
   repeatTableHeader?: boolean;
+  /** The page number of this segment's first page; later segments continue from it. */
+  pageNumberStart?: number;
+  /**
+   * Where header and footer sit. `"content"` (default): inside the page margins, right above and
+   * below the body. `"margin"`: in the top and bottom margins from the page edge, like Chrome's print
+   * headers; a band taller than its margin grows the margin.
+   */
+  bandPlacement?: "content" | "margin";
 };
 
+/** Pages a header or footer variant applies to; it overrides the default header or footer there. */
+export type BandPages = "first" | "odd" | "even";
+
 export type DocumentHeaderProps = SlotProps & {
-  children: ReactNode;
+  children?: ReactNode;
+  /** Use this header only on the segment's first page, or on odd or even page numbers. */
+  pages?: BandPages;
 };
 
 export type DocumentBodyProps = SlotProps & {
@@ -71,5 +84,7 @@ export type DocumentBodyProps = SlotProps & {
 };
 
 export type DocumentFooterProps = SlotProps & {
-  children: ReactNode;
+  children?: ReactNode;
+  /** Use this footer only on the segment's first page, or on odd or even page numbers. */
+  pages?: BandPages;
 };

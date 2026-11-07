@@ -4,6 +4,7 @@ import { inlineLineBoxes, lineCount, groupLineBoxes } from "./line-boxes.js";
 import { createComputedStyleCache } from "./computed-style.js";
 import { waitForLayoutReady } from "./layout-ready.js";
 import { measureRange } from "./measure-range.js";
+import { formatPageNumber } from "./page-number-format.js";
 import { createTableWindows } from "./table-window.js";
 import { connectedClone, getBoxStyle } from "./utils.js";
 import { resolvePageSize } from "../utils/page-size.js";
@@ -20,21 +21,93 @@ const EMPTY_BY_PAGINATION_ATTRIBUTE = "data-paged-react-empty-by-pagination";
 // Parent displays whose in-flow children are laid out top to bottom in source order.
 const ORDERED_FLOW_DISPLAYS = new Set(["block", "flow-root", "list-item", "table-row-group"]);
 
-const PAGINATING_ATTRIBUTE = "data-paged-react-paginating";
+const PAGE_NUMBER_SELECTOR = "[data-paged-react-page-number], [data-paged-react-total-pages], [data-paged-react-target-page]";
+
+// Pagination passes when filled-in target page numbers keep changing the layout.
+const MAX_PAGINATION_PASSES = 3;
 
 export async function paginateDocument(ctx: PaginateDocumentContext): Promise<HTMLElement[]> {
-  // CSS page counters are switched off while pages are added (see styles.css): keeping them
-  // current made every page's style and layout pass walk the whole document. Removing the
-  // attribute resolves them once.
-  ctx.pagesRoot.setAttribute(PAGINATING_ATTRIBUTE, "");
-  try {
-    return await paginateSegments(ctx);
-  } finally {
-    ctx.pagesRoot.removeAttribute(PAGINATING_ATTRIBUTE);
+  let knownTargets = new Map<string, string>();
+  let knownTotal: number | null = null;
+  for (let pass = 1; ; pass++) {
+    const pages = await paginateSegments(ctx, knownTargets, knownTotal);
+    const targetPages = fillPageNumbers(pages);
+
+    // A filled-in target page or total page count can be wider than its placeholder and rewrap its
+    // line (a table of contents entry, or a header or footer band, which shrinks the body). If a
+    // page now overflows, paginate again with these numbers in place, until they stop changing.
+    const overflowing = pages.some((page) => {
+      const body = page.querySelector("[data-paged-react-page-body]");
+      return (
+        body !== null &&
+        page.querySelector("[data-paged-react-target-page], [data-paged-react-total-pages]") !== null &&
+        body.scrollHeight > body.clientHeight
+      );
+    });
+    const changed =
+      knownTotal !== pages.length ||
+      targetPages.size !== knownTargets.size ||
+      Array.from(targetPages).some(([href, page]) => knownTargets.get(href) !== page);
+    if (!overflowing || !changed || pass === MAX_PAGINATION_PASSES || ctx.signal?.aborted) {
+      return pages;
+    }
+    knownTargets = targetPages;
+    knownTotal = pages.length;
   }
 }
 
-async function paginateSegments(ctx: PaginateDocumentContext): Promise<HTMLElement[]> {
+/**
+ * Writes the page numbers into PageNumber, TotalPages and TargetPageNumber spans, once, after
+ * pagination. Returns each target's page, keyed by the span's href.
+ */
+function fillPageNumbers(pages: HTMLElement[]) {
+  const pageOfId = new Map<string, number>();
+  const format = (span: Element, value: number) =>
+    formatPageNumber(value, span.getAttribute("data-paged-react-format"));
+  for (const page of pages) {
+    // The displayed number, which a segment's `pageNumberStart` can restart.
+    const number = Number(page.getAttribute("data-paged-react-number"));
+    // At scale 1 the page element is the segment clone itself, carrying the segment's id.
+    if (page.id && !pageOfId.has(page.id)) pageOfId.set(page.id, number);
+    for (const element of Array.from(page.querySelectorAll("[id]"))) {
+      if (!pageOfId.has(element.id)) pageOfId.set(element.id, number);
+    }
+    for (const span of Array.from(page.querySelectorAll("[data-paged-react-page-number]"))) {
+      span.textContent = format(span, number);
+    }
+    for (const span of Array.from(page.querySelectorAll("[data-paged-react-total-pages]"))) {
+      span.textContent = format(span, pages.length);
+    }
+  }
+
+  const targetPages = new Map<string, string>();
+  for (const page of pages) {
+    for (const span of Array.from(page.querySelectorAll("[data-paged-react-target-page]"))) {
+      const href = span.getAttribute("data-paged-react-target-page");
+      if (href === null || !href.startsWith("#")) continue;
+      // Like a browser: the fragment as written first, then percent-decoded. A malformed escape
+      // (id="100%") leaves the reference unresolved instead of failing the whole document.
+      let target = pageOfId.get(href.slice(1));
+      if (target === undefined) {
+        try {
+          target = pageOfId.get(decodeURIComponent(href.slice(1)));
+        } catch {
+          continue;
+        }
+      }
+      if (target === undefined) continue;
+      span.textContent = format(span, target);
+      targetPages.set(href, span.textContent);
+    }
+  }
+  return targetPages;
+}
+
+async function paginateSegments(
+  ctx: PaginateDocumentContext,
+  targetPages: Map<string, string>,
+  totalPages: number | null,
+): Promise<HTMLElement[]> {
   const { sourceRoot, pagesRoot, signal, options } = ctx;
   const pages: HTMLElement[] = [];
   const scale = options?.scale ?? 1;
@@ -54,11 +127,28 @@ async function paginateSegments(ctx: PaginateDocumentContext): Promise<HTMLEleme
 
   const sourceRootClone = connectedClone(sourceRoot);
 
+  // Page numbers are written after pagination; measure with a digit in place (or a target page
+  // already known from a previous pass) so headers, footers and contents lines keep their size.
+  for (const span of Array.from(sourceRootClone.querySelectorAll(PAGE_NUMBER_SELECTOR))) {
+    span.textContent = "0";
+    if (totalPages !== null && span.hasAttribute("data-paged-react-total-pages")) {
+      span.textContent = formatPageNumber(totalPages, span.getAttribute("data-paged-react-format"));
+    }
+    const href = span.getAttribute("data-paged-react-target-page");
+    if (href === null) continue;
+    const known = targetPages.get(href);
+    if (known !== undefined) span.textContent = known;
+  }
+
   const segments = Array.from(
     sourceRootClone.querySelectorAll(":scope > [data-paged-react-segment-source]"),
   ) as HTMLDivElement[];
 
+  let nextPageNumber = 1;
   for (const [segmentIndex, segment] of segments.entries()) {
+    const pageNumberStart = segment.getAttribute("data-paged-react-page-number-start");
+    if (pageNumberStart !== null) nextPageNumber = Number(pageNumberStart);
+    const firstPageNumber = nextPageNumber;
     if (signal?.aborted) return pages;
 
     let segmentPageSize = getEffectivePageSize(segment);
@@ -130,15 +220,50 @@ async function paginateSegments(ctx: PaginateDocumentContext): Promise<HTMLEleme
       return child.hasAttribute("data-paged-react-watermark-source");
     });
 
-    const headerHeight = headerSlot?.offsetHeight ?? 0;
-    const footerHeight = footerSlot?.offsetHeight ?? 0;
 
     const segBox = getBoxStyle(segment);
+
+    // bandPlacement="margin": header and footer go in the top and bottom margins, from the page
+    // edge, like Chrome's print headers and takumi. Their rows are at least the margins tall, so the
+    // body starts at the margin, and a taller band pushes it in (the margin grows).
+    const marginBands = segment.getAttribute("data-paged-react-band-placement") === "margin";
+    const placeBands = (created: ReturnType<typeof createPage>) => {
+      if (!marginBands) return;
+      created.content.style.paddingTop = "0";
+      created.content.style.paddingBottom = "0";
+      created.content.style.gridTemplateRows = `minmax(${segBox.paddingTop}px, auto) minmax(0, 1fr) minmax(${segBox.paddingBottom}px, auto)`;
+      created.header.style.alignSelf = "start";
+      created.footer.style.alignSelf = "end";
+      // Explicit rows: a hidden or empty band must not let the body move up into its row.
+      created.header.style.gridRow = "1";
+      created.body.style.gridRow = "2";
+      created.footer.style.gridRow = "3";
+      for (const band of [created.header, created.footer]) {
+        if (band.ownerDocument.defaultView?.getComputedStyle(band).display === "contents") {
+          band.style.display = "block";
+        }
+      }
+    };
     const segmentHeightOffset =
       segBox.paddingTop + segBox.paddingBottom + segBox.borderBottomWidth + segBox.borderTopWidth;
 
-    const calculatedMaxBodyHeight =
-      contentPageSizePixels.height - headerHeight - footerHeight - segmentHeightOffset;
+    // Body height a header and footer leave, for the size check and for layout-less DOMs. In the
+    // margins a band only takes room beyond its margin.
+    const bodyHeightBetween = (header: HTMLElement | null, footer: HTMLElement | null) => {
+      const top = header?.offsetHeight ?? 0;
+      const bottom = footer?.offsetHeight ?? 0;
+      if (marginBands) {
+        return (
+          contentPageSizePixels.height -
+          segBox.borderTopWidth -
+          segBox.borderBottomWidth -
+          Math.max(segBox.paddingTop, top) -
+          Math.max(segBox.paddingBottom, bottom)
+        );
+      }
+      return contentPageSizePixels.height - top - bottom - segmentHeightOffset;
+    };
+    const calculatedMaxBodyHeight = bodyHeightBetween(headerSlot, footerSlot);
 
     if (calculatedMaxBodyHeight <= 0) {
       console.warn(
@@ -149,41 +274,96 @@ async function paginateSegments(ctx: PaginateDocumentContext): Promise<HTMLEleme
 
     const repeatTableHeader =
       segment.getAttribute("data-paged-react-repeat-table-header") === "true";
-    const measurementPage = createPage({
-      segment,
-      pagesRoot,
-      pageSize: segmentPageSize,
-      contentPageSize,
-      scale,
-      bodySlot,
-      headerSlot,
-      footerSlot,
-      pageNumber: segmentIndex + 1,
-    });
-    measurementPage.page.style.left = "-100000px";
-    measurementPage.page.style.position = "absolute";
-    measurementPage.page.style.top = "0";
-    measurementPage.page.style.visibility = "hidden";
-    if (scale !== 1) {
-      measurementPage.content.style.setProperty("scale", "1");
-    }
-    cloneChildrenInto(measurementPage.header, headerSlot);
-    cloneChildrenInto(measurementPage.footer, footerSlot);
 
-    let maxBodyHeight = measurementPage.body.getBoundingClientRect().height;
-    let measurementBody: HTMLElement | null = measurementPage.body;
-    if (maxBodyHeight <= 0) {
-      maxBodyHeight = calculatedMaxBodyHeight;
-      measurementPage.page.remove();
-      measurementBody = null;
-    }
+    // Header and footer of a page: a `pages="first"` variant on the segment's first page, then an
+    // odd or even variant by page number, then the default slot.
+    const bandsFor = (bodyIndex: number) => {
+      const variant = (kind: "header" | "footer", pages: string) =>
+        segment.querySelector<HTMLDivElement>(
+          `:scope > [data-paged-react-${kind}-source][data-paged-react-pages="${pages}"]`,
+        );
+      const parity = (firstPageNumber + bodyIndex) % 2 === 0 ? "even" : "odd";
+      const band = (kind: "header" | "footer", fallbackSlot: HTMLDivElement | null) => {
+        const first = variant(kind, "first");
+        if (bodyIndex === 0 && first) return first;
+        const byParity = variant(kind, parity);
+        if (byParity) return byParity;
+        return fallbackSlot;
+      };
+      return { header: band("header", headerSlot), footer: band("footer", footerSlot) };
+    };
+
+    // The body height a page has depends on its header and footer: measure each combination once,
+    // in a hidden page that also checks candidate pages for overflow.
+    const measurements = new Map<
+      string,
+      { page: HTMLElement; maxBodyHeight: number; measurementBody: HTMLElement | null; numbers: Element[] }
+    >();
+    const pageBox = (bodyIndex: number) => {
+      const bands = bandsFor(bodyIndex);
+      const key = `${bands.header?.getAttribute("data-paged-react-pages")}|${bands.footer?.getAttribute("data-paged-react-pages")}`;
+      const known = measurements.get(key);
+      if (known) {
+        // The bands hold this page's own number while measuring: a longer one (e.g. LXXXVIII)
+        // can wrap its band and leave the body less room.
+        if (known.numbers.length && known.measurementBody) {
+          for (const span of known.numbers) {
+            span.textContent = formatPageNumber(firstPageNumber + bodyIndex, span.getAttribute("data-paged-react-format"));
+          }
+          known.maxBodyHeight = known.measurementBody.getBoundingClientRect().height;
+        }
+        return known;
+      }
+
+      const measurementPage = createPage({
+        segment,
+        pagesRoot,
+        pageSize: segmentPageSize,
+        contentPageSize,
+        scale,
+        bodySlot,
+        headerSlot: bands.header,
+        footerSlot: bands.footer,
+        pageNumber: segmentIndex + 1,
+      });
+      measurementPage.page.style.left = "-100000px";
+      measurementPage.page.style.position = "absolute";
+      measurementPage.page.style.top = "0";
+      measurementPage.page.style.visibility = "hidden";
+      if (scale !== 1) {
+        measurementPage.content.style.setProperty("scale", "1");
+      }
+      placeBands(measurementPage);
+      cloneChildrenInto(measurementPage.header, bands.header);
+      cloneChildrenInto(measurementPage.footer, bands.footer);
+
+      const numbers = Array.from(measurementPage.page.querySelectorAll("[data-paged-react-page-number]"));
+      for (const span of numbers) {
+        span.textContent = formatPageNumber(firstPageNumber + bodyIndex, span.getAttribute("data-paged-react-format"));
+      }
+      const measured = {
+        page: measurementPage.page,
+        maxBodyHeight: measurementPage.body.getBoundingClientRect().height,
+        measurementBody: measurementPage.body as HTMLElement | null,
+        numbers,
+      };
+      if (measured.maxBodyHeight <= 0) {
+        measured.maxBodyHeight = bodyHeightBetween(bands.header, bands.footer);
+        measurementPage.page.remove();
+        measured.measurementBody = null;
+      }
+      measurements.set(key, measured);
+      return measured;
+    };
+    const removeMeasurementPages = () => {
+      for (const measured of measurements.values()) measured.page.remove();
+    };
 
     console.time(`Segment ${segmentIndex + 1} pagination`);
 
     const bodyPayload = {
       body: bodySlot,
-      maxBodyHeight,
-      measurementBody,
+      pageBox,
       repeatTableHeader,
       signal,
     };
@@ -191,11 +371,12 @@ async function paginateSegments(ctx: PaginateDocumentContext): Promise<HTMLEleme
     let bodyIndex = 0;
     for await (const bodySegment of bodySegmenter(bodyPayload)) {
       if (signal?.aborted) {
-        measurementPage.page.remove();
+        removeMeasurementPages();
         console.timeEnd(`Segment ${segmentIndex + 1} pagination`);
         return pages;
       }
 
+      const bands = bandsFor(bodyIndex);
       const page = createPage({
         segment,
         pagesRoot,
@@ -203,16 +384,18 @@ async function paginateSegments(ctx: PaginateDocumentContext): Promise<HTMLEleme
         contentPageSize,
         scale,
         bodySlot,
-        headerSlot,
-        footerSlot,
+        headerSlot: bands.header,
+        footerSlot: bands.footer,
         pageNumber: segmentIndex + 1,
       });
 
+      placeBands(page);
       page.page.setAttribute("data-paged-react-segment-index", String(segmentIndex));
       page.page.setAttribute("data-paged-react-body-segment-index", String(bodyIndex));
+      page.page.setAttribute("data-paged-react-number", String(firstPageNumber + bodyIndex));
 
-      cloneChildrenInto(page.header, headerSlot);
-      cloneChildrenInto(page.footer, footerSlot);
+      cloneChildrenInto(page.header, bands.header);
+      cloneChildrenInto(page.footer, bands.footer);
       cloneChildrenInto(page.body, bodySegment);
       for (const watermark of watermarks) {
         page.page.appendChild(watermark.cloneNode(true));
@@ -221,7 +404,8 @@ async function paginateSegments(ctx: PaginateDocumentContext): Promise<HTMLEleme
 
       bodyIndex += 1;
     }
-    measurementPage.page.remove();
+    nextPageNumber = firstPageNumber + bodyIndex;
+    removeMeasurementPages();
     console.timeEnd(`Segment ${segmentIndex + 1} pagination`);
   }
 
@@ -232,12 +416,15 @@ async function paginateSegments(ctx: PaginateDocumentContext): Promise<HTMLEleme
 
 async function* bodySegmenter(ctx: {
   body: HTMLElement | null;
-  maxBodyHeight: number;
-  measurementBody: HTMLElement | null;
+  /** Body height and measurement body of the page with this index in the segment. */
+  pageBox: (bodyIndex: number) => { maxBodyHeight: number; measurementBody: HTMLElement | null };
   repeatTableHeader: boolean;
   signal?: AbortSignal;
 }): AsyncGenerator<HTMLElement> {
-  const { body, maxBodyHeight, measurementBody, repeatTableHeader, signal } = ctx;
+  const { body, pageBox, repeatTableHeader, signal } = ctx;
+  let pageIndex = 0;
+  let maxBodyHeight = pageBox(pageIndex).maxBodyHeight;
+  let measurementBody: HTMLElement | null;
 
   if (!body) return;
 
@@ -273,6 +460,8 @@ async function* bodySegmenter(ctx: {
 
   while (true) {
     if (signal?.aborted) return;
+    // Each page has its own body height: a first-page or odd/even header or footer can differ.
+    ({ maxBodyHeight, measurementBody } = pageBox(pageIndex));
     sliceMaxBodyHeight = maxBodyHeight;
     if (!firstPage && !forcedBreak) truncateLeadingMargins();
     firstPage = false;
@@ -347,6 +536,7 @@ async function* bodySegmenter(ctx: {
     }
 
     yield pageSlice;
+    pageIndex += 1;
 
     if (!mutations.length) {
       // No progress is possible, so stop instead of repeating this page forever; whatever is
