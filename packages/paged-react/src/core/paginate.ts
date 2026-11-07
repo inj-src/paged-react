@@ -255,6 +255,7 @@ async function* bodySegmenter(ctx: {
 
     let mutations: Array<() => void>;
     let pageSlice: HTMLElement;
+    let fullestSlice: { mutations: Array<() => void>; pageSlice: HTMLElement } | undefined;
 
     while (true) {
       const candidateMutations: Array<() => void> = [];
@@ -272,6 +273,7 @@ async function* bodySegmenter(ctx: {
 
       mutations = candidateMutations;
       pageSlice = candidate.segment;
+      fullestSlice ??= { mutations, pageSlice };
 
       if (overflow <= 0 || !mutations.length) {
         break;
@@ -280,7 +282,11 @@ async function* bodySegmenter(ctx: {
       let correction = Math.ceil(overflow);
       if (correction < 1) correction = 1;
       sliceMaxBodyHeight -= correction;
-      if (sliceMaxBodyHeight <= 0) break;
+      // Shrinking never cleared the overflow, e.g. a fixed-height box taller than the page.
+      if (sliceMaxBodyHeight <= 0) {
+        ({ mutations, pageSlice } = fullestSlice);
+        break;
+      }
     }
 
     yield pageSlice;
@@ -484,7 +490,10 @@ async function* bodySegmenter(ctx: {
           }
         }
 
-        mutations.push(() => target.replaceWith(remaining));
+        // Replacing text with all of its own lines changes nothing, so the page would repeat forever.
+        if (remaining.childNodes.length < lines.length) {
+          mutations.push(() => target.replaceWith(remaining));
+        }
       }
     }
 
