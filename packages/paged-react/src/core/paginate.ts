@@ -272,8 +272,8 @@ async function paginateSegments(
       continue;
     }
 
-    const repeatTableHeader =
-      segment.getAttribute("data-paged-react-repeat-table-header") === "true";
+    const repeatTableHeader = segment.getAttribute("data-paged-react-repeat-table-header");
+    const repeatTableFooter = segment.getAttribute("data-paged-react-repeat-table-footer");
 
     // Header and footer of a page: a `pages="first"` variant on the segment's first page, then an
     // odd or even variant by page number, then the default slot.
@@ -365,6 +365,7 @@ async function paginateSegments(
       body: bodySlot,
       pageBox,
       repeatTableHeader,
+      repeatTableFooter,
       signal,
     };
 
@@ -418,10 +419,16 @@ async function* bodySegmenter(ctx: {
   body: HTMLElement | null;
   /** Body height and measurement body of the page with this index in the segment. */
   pageBox: (bodyIndex: number) => { maxBodyHeight: number; measurementBody: HTMLElement | null };
-  repeatTableHeader: boolean;
+  /** Segment attributes: unset repeats a <thead>/<tfoot> like Chrome, "true" also falls back to the
+   * first/last body row, "false" repeats nothing. */
+  repeatTableHeader: string | null;
+  repeatTableFooter: string | null;
   signal?: AbortSignal;
 }): AsyncGenerator<HTMLElement> {
-  const { body, pageBox, repeatTableHeader, signal } = ctx;
+  const { body, pageBox, repeatTableHeader, repeatTableFooter, signal } = ctx;
+  const repeatHead = repeatTableHeader !== "false";
+  const firstRowHead = repeatTableHeader === "true";
+  const repeatFoot = repeatTableFooter !== "false";
   let pageIndex = 0;
   let maxBodyHeight = pageBox(pageIndex).maxBodyHeight;
   let measurementBody: HTMLElement | null;
@@ -435,6 +442,16 @@ async function* bodySegmenter(ctx: {
   const styleCache = createComputedStyleCache();
   const orderedFlowCache = new WeakMap<Element, boolean>();
   const pageBreaks = Array.from(body.querySelectorAll("[data-paged-react-page-break]"));
+  // A table without a <tfoot> repeats its last body row: it becomes the <tfoot> before any row is
+  // parked by table windowing.
+  if (repeatTableFooter === "true") {
+    for (const table of Array.from(body.querySelectorAll("table"))) {
+      const lastBody = table.tBodies[table.tBodies.length - 1];
+      if (table.tFoot || !lastBody || lastBody.rows.length < 2) continue;
+      const lastRow = lastBody.rows[lastBody.rows.length - 1];
+      if (lastRow) table.createTFoot().append(lastRow);
+    }
+  }
   const tableWindows = createTableWindows(body, ownerWindow, maxBodyHeight);
   let sliceMaxBodyHeight = maxBodyHeight;
   let lastYield = performance.now();
@@ -601,7 +618,7 @@ async function* bodySegmenter(ctx: {
     // table are placed, the header leaves the source with them.
     const consumeTableHeaderWith = (target: Element) => {
       const head = parent instanceof ownerWindow.HTMLTableElement ? parent.tHead : null;
-      if (!repeatTableHeader && head && target !== head && target.tagName !== "COLGROUP" && target.tagName !== "CAPTION") {
+      if (!repeatHead && head && target !== head && target.tagName !== "COLGROUP" && target.tagName !== "CAPTION") {
         mutations.push(() => head.remove());
       }
     };
@@ -650,7 +667,7 @@ async function* bodySegmenter(ctx: {
 
         // A table being split repeats its <tfoot> at the bottom of each fragment; the caller adds
         // it. Its last fragment fits whole and keeps the original.
-        if (repeatTableHeader && parent instanceof ownerWindow.HTMLTableElement && target === parent.tFoot) {
+        if (repeatFoot && parent instanceof ownerWindow.HTMLTableElement && target === parent.tFoot) {
           continue;
         }
 
@@ -729,9 +746,9 @@ async function* bodySegmenter(ctx: {
           if (parent instanceof ownerWindow.HTMLTableElement && target.tagName === "THEAD")
             continue;
 
-          // Keep the first body row when repeating table headers.
+          // Keep the first body row as the header of a table without a <thead>.
           if (
-            repeatTableHeader &&
+            firstRowHead &&
             parent instanceof ownerWindow.HTMLTableSectionElement &&
             parent.parentElement instanceof ownerWindow.HTMLTableElement &&
             !parent.parentElement.tHead &&
@@ -743,7 +760,7 @@ async function* bodySegmenter(ctx: {
           placed.push({ element: target, clone, mutationStart: mutations.length, consumedBefore: consumed });
           mutations.push(() => {
             // Remove the source node after cloning it into the page.
-            cleanupPaginationTarget(target, parent, repeatTableHeader);
+            cleanupPaginationTarget(target, parent, firstRowHead);
           });
           consumeTableHeaderWith(target);
           consumed = true;
@@ -769,7 +786,7 @@ async function* bodySegmenter(ctx: {
           // Like Chrome's print, a table continuing on the next page repeats its <tfoot> at the
           // bottom of this fragment, so leave room for it below the rows.
           const repeatedFooter =
-            repeatTableHeader && target instanceof ownerWindow.HTMLTableElement ? target.tFoot : null;
+            repeatFoot && target instanceof ownerWindow.HTMLTableElement ? target.tFoot : null;
           if (repeatedFooter) sliceMaxBodyHeight -= repeatedFooter.getBoundingClientRect().height;
 
           let childSegment: ReturnType<typeof bodySlice>;
@@ -1114,7 +1131,7 @@ async function* bodySegmenter(ctx: {
   function cleanupPaginationTarget(
     target: Element,
     parent: HTMLElement,
-    repeatTableHeader: boolean,
+    firstRowHead: boolean,
   ) {
     if (target instanceof ownerWindow.HTMLTableRowElement) carryRowSpans(target);
 
@@ -1137,7 +1154,7 @@ async function* bodySegmenter(ctx: {
       const table = parent.parentElement;
       if (parent.rows.length === 0) parent.remove();
       if (
-        repeatTableHeader &&
+        firstRowHead &&
         table instanceof ownerWindow.HTMLTableElement &&
         !table.tHead &&
         parent.rows.length === 1

@@ -171,7 +171,7 @@ describe("paginateDocument", () => {
     expect(pages[1].querySelectorAll("tbody tr")).toHaveLength(1);
   });
 
-  it("keeps a table header only on the first fragment without repeatTableHeader", async () => {
+  it("keeps a table header only on the first fragment with repeatTableHeader false", async () => {
     const sourceRoot = document.createElement("div");
     const pagesRoot = document.createElement("div");
     const segment = document.createElement("div");
@@ -183,6 +183,7 @@ describe("paginateDocument", () => {
     segment.setAttribute("data-paged-react-segment-source", "");
     segment.setAttribute("data-paged-react-page-width", "100px");
     segment.setAttribute("data-paged-react-page-height", "100px");
+    segment.setAttribute("data-paged-react-repeat-table-header", "false");
     body.setAttribute("data-paged-react-body-source", "");
     thead.innerHTML = '<tr data-test-height="20"><th>Head</th></tr>';
     for (const index of [1, 2, 3, 4]) {
@@ -274,7 +275,7 @@ describe("paginateDocument", () => {
     );
   });
 
-  it("repeats a table footer at the bottom of every fragment with repeatTableHeader", async () => {
+  it("repeats a table header and footer on every fragment by default", async () => {
     const sourceRoot = document.createElement("div");
     const pagesRoot = document.createElement("div");
     const segment = document.createElement("div");
@@ -287,7 +288,6 @@ describe("paginateDocument", () => {
     segment.setAttribute("data-paged-react-segment-source", "");
     segment.setAttribute("data-paged-react-page-width", "100px");
     segment.setAttribute("data-paged-react-page-height", "100px");
-    segment.setAttribute("data-paged-react-repeat-table-header", "true");
     body.setAttribute("data-paged-react-body-source", "");
     thead.innerHTML = '<tr data-test-height="20"><th>Head</th></tr>';
     tfoot.innerHTML = '<tr data-test-height="20"><td>Foot</td></tr>';
@@ -308,6 +308,131 @@ describe("paginateDocument", () => {
 
     // 100px page: header 20 + two 25px rows + footer 20 per fragment.
     expect(pages.map((page) => page.textContent)).toEqual(["HeadRow 1Row 2Foot", "HeadRow 3Row 4Foot"]);
+  });
+
+  it("does not repeat a body row of a table without a header or footer by default", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const table = document.createElement("table");
+    const tbody = document.createElement("tbody");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    body.setAttribute("data-paged-react-body-source", "");
+    for (const index of [1, 2, 3, 4, 5]) {
+      const row = document.createElement("tr");
+      row.setAttribute("data-test-height", "25");
+      row.style.breakInside = "avoid";
+      row.innerHTML = `<td>Row ${index}</td>`;
+      tbody.append(row);
+    }
+    table.append(tbody);
+    body.append(table);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages.map((page) => page.textContent)).toEqual(["Row 1Row 2Row 3Row 4","Row 5"]);
+  });
+
+  it("repeats the first body row of a table without a <thead> with repeatTableHeader true", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const table = document.createElement("table");
+    const tbody = document.createElement("tbody");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    segment.setAttribute("data-paged-react-repeat-table-header", "true");
+    body.setAttribute("data-paged-react-body-source", "");
+    for (const index of [1, 2, 3, 4, 5]) {
+      const row = document.createElement("tr");
+      row.setAttribute("data-test-height", "25");
+      row.style.breakInside = "avoid";
+      row.innerHTML = `<td>Row ${index}</td>`;
+      tbody.append(row);
+    }
+    table.append(tbody);
+    body.append(table);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages.map((page) => page.textContent)).toEqual(["Row 1Row 2Row 3Row 4","Row 1Row 5"]);
+  });
+
+  it("repeats the last body row of a table without a <tfoot> with repeatTableFooter true", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const table = document.createElement("table");
+    const tbody = document.createElement("tbody");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    segment.setAttribute("data-paged-react-repeat-table-footer", "true");
+    body.setAttribute("data-paged-react-body-source", "");
+    for (const index of [1, 2, 3, 4, 5]) {
+      const row = document.createElement("tr");
+      row.setAttribute("data-test-height", "25");
+      row.style.breakInside = "avoid";
+      row.innerHTML = `<td>Row ${index}</td>`;
+      tbody.append(row);
+    }
+    table.append(tbody);
+    body.append(table);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+    // Row 5 becomes the footer: three rows + footer per 100px page, the footer once at the end.
+    expect(pages.map((page) => page.textContent)).toEqual(["Row 1Row 2Row 3Row 5","Row 4Row 5"]);
+  });
+
+  it("shows a table footer once at the end with repeatTableFooter false", async () => {
+    const sourceRoot = document.createElement("div");
+    const pagesRoot = document.createElement("div");
+    const segment = document.createElement("div");
+    const body = document.createElement("div");
+    const table = document.createElement("table");
+    const tbody = document.createElement("tbody");
+
+    segment.setAttribute("data-paged-react-segment-source", "");
+    segment.setAttribute("data-paged-react-page-width", "100px");
+    segment.setAttribute("data-paged-react-page-height", "100px");
+    segment.setAttribute("data-paged-react-repeat-table-footer", "false");
+    body.setAttribute("data-paged-react-body-source", "");
+    for (const index of [1, 2, 3, 4, 5]) {
+      const row = document.createElement("tr");
+      row.setAttribute("data-test-height", "25");
+      row.style.breakInside = "avoid";
+      row.innerHTML = `<td>Row ${index}</td>`;
+      tbody.append(row);
+    }
+    const tfoot = document.createElement("tfoot");
+    tfoot.innerHTML = '<tr data-test-height="20"><td>Foot</td></tr>';
+    table.append(tbody, tfoot);
+    body.append(table);
+    segment.append(body);
+    sourceRoot.append(segment);
+    document.body.append(sourceRoot, pagesRoot);
+
+    const pages = await paginateDocument({ sourceRoot, pagesRoot });
+
+    expect(pages.map((page) => page.textContent)).toEqual(["Row 1Row 2Row 3Row 4","Row 5Foot"]);
   });
 
   it("keeps a rowspan cell's column when its rows continue on the next page", async () => {

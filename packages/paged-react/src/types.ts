@@ -59,7 +59,17 @@ export type DocumentSegmentProps = SlotProps & {
   children: ReactNode;
   pageSize: PageSize;
   pageMargins?: PageMargins;
+  /**
+   * A table split across pages repeats its `<thead>` on every page, like Chrome. `true` also repeats
+   * the first body row of a table without a `<thead>`; `false` shows the header on the first page only.
+   */
   repeatTableHeader?: boolean;
+  /**
+   * A table split across pages repeats its `<tfoot>` at the bottom of every page, like Chrome. `true`
+   * also repeats the last body row of a table without a `<tfoot>`; `false` shows the footer once, at
+   * the end of the table.
+   */
+  repeatTableFooter?: boolean;
   /** The page number of this segment's first page; later segments continue from it. */
   pageNumberStart?: number;
   /**
