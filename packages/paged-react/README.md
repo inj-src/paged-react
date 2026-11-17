@@ -260,14 +260,19 @@ Give the number a fixed width (for example `display: inline-block; width: 3ch; f
 Direct child `<table>` elements inside `Document.Body` can be split by row when they overflow a page.
 
 ```tsx
-<Document.Segment pageSize={pageSizes.A4} repeatTableHeader>
+<Document.Segment pageSize={pageSizes.A4}>
   <Document.Body>
     <table>{/* rows */}</table>
   </Document.Body>
 </Document.Segment>
 ```
 
-If a table has a `<thead>`, only the first table fragment shows it when `repeatTableHeader` is not set. Use `repeatTableHeader` on `Document.Segment` when continuation pages should also repeat the original `<thead>`; a `<tfoot>` is then repeated at the bottom of every fragment too, like Chrome prints it.
+Like Chrome's print, a split table repeats its `<thead>` at the top and its `<tfoot>` at the bottom of every page. Two props on `Document.Segment` change that:
+
+| Prop | Not set (default) | `true` | `false` |
+|---|---|---|---|
+| `repeatTableHeader` | repeats the `<thead>` | repeats the `<thead>`, or the first body row of a table without one | header on the first page only |
+| `repeatTableFooter` | repeats the `<tfoot>` | repeats the `<tfoot>`, or the last body row of a table without one | footer once, at the end of the table |
 
 ## Page Breaks
 
